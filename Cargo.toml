@@ -1,0 +1,15 @@
+[package]
+name = "rust-js"
+version = "0.1.0"
+authors = ["remtori <lqvu99@gmail.com>"]
+edition = "2018"
+license = "MIT"
+
+[lib]
+crate-type = ["rlib"]
+
+[[bin]]
+name = "js"
+path = "src/main.rs"
+
+[dependencies]
