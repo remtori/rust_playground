@@ -1,7 +1,12 @@
-use rust_js::{ast::Expression, ast::Operator, js::Value, Context};
+use rust_js::{
+    ast::{Expression, Operator},
+    js::Value,
+    parser::{lexer::Lexer, token::TokenType},
+    Context,
+};
 
 fn main() {
-    let mut context = Context {};
+    let mut context = Context::new();
 
     let mut expr = Operator::Add {
         lhs: Box::new(Operator::Mult {
@@ -17,4 +22,22 @@ fn main() {
     let value = expr.eval(&mut context);
 
     println!("Exec value: {:?}", value);
+
+    let mut lexer = Lexer::new(
+        r#"
+            4 + (6 - 9) * 2;
+            "hello, world"
+            '!'
+            "/?"
+        "#,
+    );
+
+    loop {
+        let token = lexer.next_token();
+        println!("{:?}", token);
+
+        if token.token_type() == TokenType::Eof {
+            break;
+        }
+    }
 }

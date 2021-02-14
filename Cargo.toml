@@ -13,3 +13,11 @@ name = "js"
 path = "src/main.rs"
 
 [dependencies]
+lazy_static = "1.4.0"
+
+[features]
+
+defaults = []
+
+debug_all = [ "debug_lexer" ]
+debug_lexer = []
