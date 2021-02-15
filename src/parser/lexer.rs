@@ -3,6 +3,7 @@ use std::collections::HashMap;
 
 const EOF: char = '\0';
 
+#[derive(Debug)]
 pub struct Lexer<'s> {
     source: &'s str,
     position: usize,
@@ -247,7 +248,10 @@ impl<'s> Lexer<'s> {
     }
 
     fn is_line_terminator(&self) -> bool {
-        matches!(self.current_char, '\u{000A}' | '\u{000D}' | '\u{2028}' | '\u{2029}')
+        matches!(
+            self.current_char,
+            '\u{000A}' | '\u{000D}' | '\u{2028}' | '\u{2029}'
+        )
     }
 
     fn is_eof(&self) -> bool {
@@ -284,7 +288,10 @@ impl<'s> Lexer<'s> {
     }
 
     fn unchecked_peekato(&self, offset: isize) -> char {
-        self.source.chars().nth((self.position as isize + offset) as usize).unwrap()
+        self.source
+            .chars()
+            .nth((self.position as isize + offset) as usize)
+            .unwrap()
     }
 }
 

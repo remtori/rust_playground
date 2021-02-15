@@ -15,7 +15,13 @@ impl<'l> Token<'l> {
         line_number: usize,
         line_column: usize,
     ) -> Token<'a> {
-        Token { kind, value, trivia, line_number, line_column }
+        Token {
+            kind,
+            value,
+            trivia,
+            line_number,
+            line_column,
+        }
     }
 
     pub fn kind(&self) -> TokenKind {
