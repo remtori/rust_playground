@@ -28,7 +28,7 @@ impl<'s> Lexer<'s> {
         lexer
     }
 
-    pub fn next_token(&mut self) -> Token {
+    pub fn next_token(&mut self) -> Token<'s> {
         let trivia_start = self.position - 1;
 
         // consume whitespace and comments
