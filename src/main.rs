@@ -1,7 +1,7 @@
 use rust_js::{
     ast::{ASTNode, Expression},
     js::Value,
-    parser::{lexer::Lexer, token::TokenKind},
+    parser::{lexer::Lexer, token::TokenKind, Parser},
     Context,
 };
 
@@ -24,22 +24,33 @@ fn main() {
     // println!("Expr: {:?}", expr);
     // println!("Exec value: {:?}", value);
 
-    let mut lexer = Lexer::new(
+    // let mut lexer = Lexer::new(
+    //     r#"
+    //         4 + (6 - 9) * 2;
+    //         "hello, world"
+    //         '!'
+    //         "/?"
+    //         a + 4 - 9 * b / 2
+    //     "#,
+    // );
+
+    // loop {
+    //     let token = lexer.next_token();
+    //     println!("{:?}", token);
+
+    //     if token.kind() == TokenKind::Eof {
+    //         break;
+    //     }
+    // }
+
+    let mut parser = Parser::new(
         r#"
-            4 + (6 - 9) * 2;
-            "hello, world"
-            '!'
-            "/?"
-            a + 4 - 9 * b / 2
+            4 + (6 - 9) * 2
         "#,
     );
 
-    loop {
-        let token = lexer.next_token();
-        println!("{:?}", token);
-
-        if token.kind() == TokenKind::Eof {
-            break;
-        }
+    let mut program = parser.parse_program();
+    for statement in program.statements_mut().iter_mut() {
+        println!("{:?}", statement.eval(&mut context));
     }
 }
