@@ -1,5 +1,5 @@
 use rust_js::{
-    ast::{Expression, Operator},
+    ast::{ASTNode, Expression},
     js::Value,
     parser::{lexer::Lexer, token::TokenKind},
     Context,
@@ -8,19 +8,20 @@ use rust_js::{
 fn main() {
     let mut context = Context::new();
 
-    // let mut expr = Operator::Add {
-    //     lhs: Box::new(Operator::Mult {
-    //         lhs: Box::new(Value::Number(4.0)),
-    //         rhs: Box::new(Value::Number(3.0)),
-    //     }),
-    //     rhs: Box::new(Operator::Sub {
-    //         lhs: Box::new(Value::Number(2.0)),
-    //         rhs: Box::new(Value::Number(1.0)),
-    //     }),
-    // };
+    // let mut expr = Expression::Add(
+    //     Box::new(Expression::Mult(
+    //         Box::new(Value::Number(4.0)),
+    //         Box::new(Value::Number(3.0)),
+    //     )),
+    //     Box::new(Expression::Sub(
+    //         Box::new(Value::Number(2.0)),
+    //         Box::new(Value::Number(1.0)),
+    //     )),
+    // );
 
     // let value = expr.eval(&mut context);
 
+    // println!("Expr: {:?}", expr);
     // println!("Exec value: {:?}", value);
 
     let mut lexer = Lexer::new(

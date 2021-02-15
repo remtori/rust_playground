@@ -1,6 +1,8 @@
+use std::*;
+
 use crate::*;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum Value {
     Undefined,
     Null,
@@ -16,16 +18,35 @@ pub enum PreferredType {
     String,
 }
 
-impl ast::Expression for Value {
+impl ast::ASTNode for Value {
     fn eval(&mut self, _: &mut Context) -> Value {
         self.clone()
     }
 }
 
+impl fmt::Display for Value {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Value::Undefined => write!(f, "Value{{undefined}}"),
+            Value::Null => write!(f, "Value{{null}}"),
+            Value::Boolean(b) => write!(f, "Value{{bool: {}}}", b),
+            Value::Number(v) => write!(f, "Value{{number: {}}}", v),
+            Value::String(s) => write!(f, "Value{{string: {}}}", s),
+            Value::Object(_) => write!(f, "Value{{object}}"),
+        }
+    }
+}
+
+impl fmt::Debug for Value {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        std::fmt::Display::fmt(&self, f)
+    }
+}
+
 impl Value {
     /// JS Value type conversion
-    pub fn to_primitive(&self, _: PreferredType) -> Value {
-        if let Value::Object(_) = self {
+    pub fn to_primitive(&self, _preferred_type: PreferredType) -> Value {
+        if let Value::Object(_obj) = self {
             todo!()
         } else {
             self.clone()
@@ -49,22 +70,19 @@ impl Value {
             Value::Null => Value::Number(0.0),
             Value::Boolean(b) => Value::Number(if *b { 1.0 } else { 0.0 }),
             Value::Number(v) => Value::Number(*v),
-            Value::String(s) => {
-                Value::Number(if let Ok(v) = s.parse::<f64>() { v } else { f64::NAN })
-            }
-            Value::Object(_) => todo!(),
+            Value::String(s) => Value::Number(*s.parse::<f64>().ok().get_or_insert(f64::NAN)),
+            Value::Object(_) => self.to_primitive(PreferredType::Number).to_number(),
         }
     }
 
-    #[allow(clippy::inherent_to_string)]
-    pub fn to_string(&self) -> String {
+    pub fn spec_to_string(&self) -> String {
         match self {
             Value::Undefined => "undefined".to_owned(),
             Value::Null => "null".to_owned(),
             Value::Boolean(v) => v.to_string(),
             Value::Number(v) => v.to_string(),
             Value::String(v) => v.clone(),
-            Value::Object(_) => "[object]".to_owned(),
+            Value::Object(_) => self.to_primitive(PreferredType::String).spec_to_string(),
         }
     }
 }
