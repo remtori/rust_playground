@@ -35,6 +35,10 @@ impl Program {
         }
     }
 
+    pub fn statements_mut(&mut self) -> &mut Vec<Statement> {
+        &mut self.statements
+    }
+
     pub fn statements(&self) -> &Vec<Statement> {
         &self.statements
     }
@@ -58,7 +62,7 @@ impl ASTNode for Statement {
 }
 
 #[derive(Debug)]
-pub enum ExpressionKind {
+pub enum Expression {
     Invalid,
 
     Identifier(String),
@@ -75,38 +79,31 @@ pub enum ExpressionKind {
     Mult(Box<dyn ASTNode>, Box<dyn ASTNode>),
 }
 
-#[derive(Debug)]
-pub struct Expression {
-    kind: ExpressionKind,
-}
-
 impl ASTNode for Expression {
     fn eval(&mut self, context: &mut Context) -> Value {
-        match &mut self.kind {
-            ExpressionKind::Invalid => unreachable!(),
+        match self {
+            Expression::Invalid => unreachable!(),
 
-            ExpressionKind::Null => Value::Null,
-            ExpressionKind::Boolean(b) => Value::Boolean(*b),
-            ExpressionKind::Numeric(v) => Value::Number(*v),
-            ExpressionKind::String(s) => Value::String(s.clone()),
+            Expression::Null => Value::Null,
+            Expression::Boolean(b) => Value::Boolean(*b),
+            Expression::Numeric(v) => Value::Number(*v),
+            Expression::String(s) => Value::String(s.clone()),
 
-            ExpressionKind::Add(lhs, rhs)
-            | ExpressionKind::Sub(lhs, rhs)
-            | ExpressionKind::Mult(lhs, rhs) => {
+            Expression::Add(lhs, rhs) | Expression::Sub(lhs, rhs) | Expression::Mult(lhs, rhs) => {
                 let left_value = lhs.eval(context);
                 let right_value = rhs.eval(context);
                 if let Value::Number(left_number) = left_value.to_number() {
                     if let Value::Number(right_number) = right_value.to_number() {
-                        return match self.kind {
-                            ExpressionKind::Add(_, _) => Value::Number(left_number + right_number),
-                            ExpressionKind::Sub(_, _) => Value::Number(left_number - right_number),
-                            ExpressionKind::Mult(_, _) => Value::Number(left_number * right_number),
+                        return match self {
+                            Expression::Add(_, _) => Value::Number(left_number + right_number),
+                            Expression::Sub(_, _) => Value::Number(left_number - right_number),
+                            Expression::Mult(_, _) => Value::Number(left_number * right_number),
                             _ => unreachable!(),
                         };
                     }
                 }
 
-                if let ExpressionKind::Add(_, _) = self.kind {
+                if let Expression::Add(_, _) = self {
                     let mut res = left_value.to_string();
                     res.push_str(&right_value.to_string());
                     return Value::String(res);
