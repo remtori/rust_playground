@@ -1,10 +1,22 @@
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct Token<'l> {
     kind: TokenKind,
     value: &'l str,
     trivia: &'l str,
     line_number: usize,
     line_column: usize,
+}
+
+impl Default for Token<'static> {
+    fn default() -> Token<'static> {
+        Token {
+            kind: TokenKind::Invalid,
+            value: "",
+            trivia: "",
+            line_number: 0,
+            line_column: 0,
+        }
+    }
 }
 
 impl<'l> Token<'l> {
@@ -28,9 +40,9 @@ impl<'l> Token<'l> {
         self.kind
     }
 
-    pub fn double_value(&self) -> Option<f64> {
+    pub fn double_value(&self) -> f64 {
         assert_eq!(self.kind, TokenKind::NumericLiteral);
-        self.value.parse::<f64>().ok()
+        self.value.parse::<f64>().unwrap()
     }
 
     pub fn bool_value(&self) -> bool {
