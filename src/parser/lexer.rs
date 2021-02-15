@@ -6,7 +6,7 @@ const EOF: char = '\0';
 pub struct Lexer<'s> {
     source: &'s str,
     position: usize,
-    current_token: Token<'s>,
+    previous_token_kind: TokenKind,
     current_char: char,
     line_number: usize,
     line_column: usize,
@@ -17,7 +17,7 @@ impl<'s> Lexer<'s> {
         let mut lexer = Lexer {
             source,
             position: 0,
-            current_token: Token::new(TokenType::Eof, "", "", 0, 0),
+            previous_token_kind: TokenKind::Eof,
             current_char: '\0',
             line_number: 1,
             line_column: 0,
@@ -71,10 +71,25 @@ impl<'s> Lexer<'s> {
         let value_start = self.position - 1;
         let value_start_line_number = self.line_number;
         let value_start_line_column = self.line_column;
-        let mut token_type = TokenType::Invalid;
+        let mut token_kind = TokenKind::Invalid;
 
-        if self.is_numeric_literal_start() {
-            token_type = TokenType::NumericLiteral;
+        if self.is_identifier_start() {
+            // Identifier or keywords
+
+            loop {
+                self.consume();
+                if !self.is_identifier_body() {
+                    break;
+                }
+            }
+
+            if let Some(tk) = KEY_WORDS.get(&self.source[value_start..self.position - 1]) {
+                token_kind = *tk;
+            } else {
+                token_kind = TokenKind::Identifier;
+            }
+        } else if self.is_numeric_literal_start() {
+            token_kind = TokenKind::NumericLiteral;
             while self.current_char.is_digit(10) {
                 self.consume();
             }
@@ -97,7 +112,7 @@ impl<'s> Lexer<'s> {
                 }
             }
         } else if self.current_char == EOF {
-            token_type = TokenType::Eof;
+            token_kind = TokenKind::Eof;
         } else {
             // The only four char operator: >>>=
             let mut found_4_char_token = false;
@@ -114,7 +129,7 @@ impl<'s> Lexer<'s> {
                 THREE_CHAR_TOKEN.get(&self.source[self.position - 1..self.position + 2])
             {
                 found_3_char_token = true;
-                token_type = *tk;
+                token_kind = *tk;
                 self.consume();
                 self.consume();
                 self.consume();
@@ -124,7 +139,7 @@ impl<'s> Lexer<'s> {
             if let Some(tk) = TWO_CHAR_TOKEN.get(&self.source[self.position - 1..self.position + 1])
             {
                 found_2_char_token = true;
-                token_type = *tk;
+                token_kind = *tk;
                 self.consume();
                 self.consume();
             }
@@ -132,7 +147,7 @@ impl<'s> Lexer<'s> {
             let mut found_single_char_token = false;
             if let Some(tk) = SINGLE_CHAR_TOKEN.get(&self.current_char) {
                 found_single_char_token = true;
-                token_type = *tk;
+                token_kind = *tk;
                 self.consume();
             }
 
@@ -142,7 +157,7 @@ impl<'s> Lexer<'s> {
                 && !found_single_char_token
             {
                 self.consume();
-                token_type = TokenType::Invalid;
+                token_kind = TokenKind::Invalid;
             }
         }
 
@@ -158,15 +173,15 @@ impl<'s> Lexer<'s> {
             value_start
         );
 
-        self.current_token = Token::new(
-            token_type,
+        self.previous_token_kind = token_kind;
+
+        Token::new(
+            token_kind,
             &self.source[value_start..self.position - 1],
             &self.source[trivia_start..value_start],
             value_start_line_number,
             value_start_line_column,
-        );
-
-        self.current_token
+        )
     }
 
     fn consume(&mut self) {
@@ -202,6 +217,14 @@ impl<'s> Lexer<'s> {
 
         self.current_char = self.unchecked_peekato(0);
         self.position += 1
+    }
+
+    fn is_identifier_start(&self) -> bool {
+        self.current_char.is_alphabetic() || self.current_char == '$' || self.current_char == '_'
+    }
+
+    fn is_identifier_body(&self) -> bool {
+        self.current_char.is_digit(10) || self.is_identifier_start()
     }
 
     fn is_numeric_literal_start(&self) -> bool {
@@ -266,115 +289,115 @@ impl<'s> Lexer<'s> {
 }
 
 lazy_static! {
-    static ref KEY_WORDS: HashMap<&'static str, TokenType> = {
+    static ref KEY_WORDS: HashMap<&'static str, TokenKind> = {
         let mut m = HashMap::new();
-        m.insert("await", TokenType::Await);
-        m.insert("break", TokenType::Break);
-        m.insert("case", TokenType::Case);
-        m.insert("catch", TokenType::Catch);
-        m.insert("class", TokenType::Class);
-        m.insert("const", TokenType::Const);
-        m.insert("continue", TokenType::Continue);
-        m.insert("debugger", TokenType::Debugger);
-        m.insert("default", TokenType::Default);
-        m.insert("delete", TokenType::Delete);
-        m.insert("do", TokenType::Do);
-        m.insert("else", TokenType::Else);
-        m.insert("enum", TokenType::Enum);
-        m.insert("export", TokenType::Export);
-        m.insert("extends", TokenType::Extends);
-        m.insert("false", TokenType::BoolLiteral);
-        m.insert("finally", TokenType::Finally);
-        m.insert("for", TokenType::For);
-        m.insert("function", TokenType::Function);
-        m.insert("if", TokenType::If);
-        m.insert("import", TokenType::Import);
-        m.insert("in", TokenType::In);
-        m.insert("instanceof", TokenType::Instanceof);
-        m.insert("let", TokenType::Let);
-        m.insert("new", TokenType::New);
-        m.insert("null", TokenType::NullLiteral);
-        m.insert("return", TokenType::Return);
-        m.insert("super", TokenType::Super);
-        m.insert("switch", TokenType::Switch);
-        m.insert("this", TokenType::This);
-        m.insert("throw", TokenType::Throw);
-        m.insert("true", TokenType::BoolLiteral);
-        m.insert("try", TokenType::Try);
-        m.insert("typeof", TokenType::Typeof);
-        m.insert("var", TokenType::Var);
-        m.insert("void", TokenType::Void);
-        m.insert("while", TokenType::While);
-        m.insert("with", TokenType::With);
-        m.insert("yield", TokenType::Yield);
+        m.insert("await", TokenKind::Await);
+        m.insert("break", TokenKind::Break);
+        m.insert("case", TokenKind::Case);
+        m.insert("catch", TokenKind::Catch);
+        m.insert("class", TokenKind::Class);
+        m.insert("const", TokenKind::Const);
+        m.insert("continue", TokenKind::Continue);
+        m.insert("debugger", TokenKind::Debugger);
+        m.insert("default", TokenKind::Default);
+        m.insert("delete", TokenKind::Delete);
+        m.insert("do", TokenKind::Do);
+        m.insert("else", TokenKind::Else);
+        m.insert("enum", TokenKind::Enum);
+        m.insert("export", TokenKind::Export);
+        m.insert("extends", TokenKind::Extends);
+        m.insert("false", TokenKind::BoolLiteral);
+        m.insert("finally", TokenKind::Finally);
+        m.insert("for", TokenKind::For);
+        m.insert("function", TokenKind::Function);
+        m.insert("if", TokenKind::If);
+        m.insert("import", TokenKind::Import);
+        m.insert("in", TokenKind::In);
+        m.insert("instanceof", TokenKind::Instanceof);
+        m.insert("let", TokenKind::Let);
+        m.insert("new", TokenKind::New);
+        m.insert("null", TokenKind::NullLiteral);
+        m.insert("return", TokenKind::Return);
+        m.insert("super", TokenKind::Super);
+        m.insert("switch", TokenKind::Switch);
+        m.insert("this", TokenKind::This);
+        m.insert("throw", TokenKind::Throw);
+        m.insert("true", TokenKind::BoolLiteral);
+        m.insert("try", TokenKind::Try);
+        m.insert("typeof", TokenKind::Typeof);
+        m.insert("var", TokenKind::Var);
+        m.insert("void", TokenKind::Void);
+        m.insert("while", TokenKind::While);
+        m.insert("with", TokenKind::With);
+        m.insert("yield", TokenKind::Yield);
         m
     };
-    static ref THREE_CHAR_TOKEN: HashMap<&'static str, TokenType> = {
+    static ref THREE_CHAR_TOKEN: HashMap<&'static str, TokenKind> = {
         let mut m = HashMap::new();
-        m.insert("===", TokenType::EqualsEqualsEquals);
-        m.insert("!==", TokenType::ExclamationMarkEqualsEquals);
-        m.insert("**=", TokenType::DoubleAsteriskEquals);
-        m.insert("<<=", TokenType::ShiftLeftEquals);
-        m.insert(">>=", TokenType::ShiftRightEquals);
-        m.insert("&&=", TokenType::DoubleAmpersandEquals);
-        m.insert("||=", TokenType::DoublePipeEquals);
-        m.insert("??=", TokenType::DoubleQuestionMarkEquals);
-        m.insert(">>>", TokenType::UnsignedShiftRight);
-        m.insert("...", TokenType::TripleDot);
+        m.insert("===", TokenKind::EqualsEqualsEquals);
+        m.insert("!==", TokenKind::ExclamationMarkEqualsEquals);
+        m.insert("**=", TokenKind::DoubleAsteriskEquals);
+        m.insert("<<=", TokenKind::ShiftLeftEquals);
+        m.insert(">>=", TokenKind::ShiftRightEquals);
+        m.insert("&&=", TokenKind::DoubleAmpersandEquals);
+        m.insert("||=", TokenKind::DoublePipeEquals);
+        m.insert("??=", TokenKind::DoubleQuestionMarkEquals);
+        m.insert(">>>", TokenKind::UnsignedShiftRight);
+        m.insert("...", TokenKind::TripleDot);
         m
     };
-    static ref TWO_CHAR_TOKEN: HashMap<&'static str, TokenType> = {
+    static ref TWO_CHAR_TOKEN: HashMap<&'static str, TokenKind> = {
         let mut m = HashMap::new();
-        m.insert("=>", TokenType::Arrow);
-        m.insert("+=", TokenType::PlusEquals);
-        m.insert("-=", TokenType::MinusEquals);
-        m.insert("*=", TokenType::AsteriskEquals);
-        m.insert("/=", TokenType::SlashEquals);
-        m.insert("%=", TokenType::PercentEquals);
-        m.insert("&=", TokenType::AmpersandEquals);
-        m.insert("|=", TokenType::PipeEquals);
-        m.insert("^=", TokenType::CaretEquals);
-        m.insert("&&", TokenType::DoubleAmpersand);
-        m.insert("||", TokenType::DoublePipe);
-        m.insert("??", TokenType::DoubleQuestionMark);
-        m.insert("**", TokenType::DoubleAsterisk);
-        m.insert("==", TokenType::EqualsEquals);
-        m.insert("<=", TokenType::LessThanEquals);
-        m.insert(">=", TokenType::GreaterThanEquals);
-        m.insert("!=", TokenType::ExclamationMarkEquals);
-        m.insert("--", TokenType::MinusMinus);
-        m.insert("++", TokenType::PlusPlus);
-        m.insert("<<", TokenType::ShiftLeft);
-        m.insert(">>", TokenType::ShiftRight);
-        m.insert("?.", TokenType::QuestionMarkPeriod);
+        m.insert("=>", TokenKind::Arrow);
+        m.insert("+=", TokenKind::PlusEquals);
+        m.insert("-=", TokenKind::MinusEquals);
+        m.insert("*=", TokenKind::AsteriskEquals);
+        m.insert("/=", TokenKind::SlashEquals);
+        m.insert("%=", TokenKind::PercentEquals);
+        m.insert("&=", TokenKind::AmpersandEquals);
+        m.insert("|=", TokenKind::PipeEquals);
+        m.insert("^=", TokenKind::CaretEquals);
+        m.insert("&&", TokenKind::DoubleAmpersand);
+        m.insert("||", TokenKind::DoublePipe);
+        m.insert("??", TokenKind::DoubleQuestionMark);
+        m.insert("**", TokenKind::DoubleAsterisk);
+        m.insert("==", TokenKind::EqualsEquals);
+        m.insert("<=", TokenKind::LessThanEquals);
+        m.insert(">=", TokenKind::GreaterThanEquals);
+        m.insert("!=", TokenKind::ExclamationMarkEquals);
+        m.insert("--", TokenKind::MinusMinus);
+        m.insert("++", TokenKind::PlusPlus);
+        m.insert("<<", TokenKind::ShiftLeft);
+        m.insert(">>", TokenKind::ShiftRight);
+        m.insert("?.", TokenKind::QuestionMarkPeriod);
         m
     };
-    static ref SINGLE_CHAR_TOKEN: HashMap<char, TokenType> = {
+    static ref SINGLE_CHAR_TOKEN: HashMap<char, TokenKind> = {
         let mut m = HashMap::new();
-        m.insert('&', TokenType::Ampersand);
-        m.insert('*', TokenType::Asterisk);
-        m.insert('[', TokenType::BracketOpen);
-        m.insert(']', TokenType::BracketClose);
-        m.insert('^', TokenType::Caret);
-        m.insert(':', TokenType::Colon);
-        m.insert(',', TokenType::Comma);
-        m.insert('{', TokenType::CurlyOpen);
-        m.insert('}', TokenType::CurlyClose);
-        m.insert('=', TokenType::Equals);
-        m.insert('!', TokenType::ExclamationMark);
-        m.insert('-', TokenType::Minus);
-        m.insert('(', TokenType::ParenOpen);
-        m.insert(')', TokenType::ParenClose);
-        m.insert('%', TokenType::Percent);
-        m.insert('.', TokenType::Period);
-        m.insert('|', TokenType::Pipe);
-        m.insert('+', TokenType::Plus);
-        m.insert('?', TokenType::QuestionMark);
-        m.insert(';', TokenType::Semicolon);
-        m.insert('/', TokenType::Slash);
-        m.insert('~', TokenType::Tilde);
-        m.insert('<', TokenType::LessThan);
-        m.insert('>', TokenType::GreaterThan);
+        m.insert('&', TokenKind::Ampersand);
+        m.insert('*', TokenKind::Asterisk);
+        m.insert('[', TokenKind::BracketOpen);
+        m.insert(']', TokenKind::BracketClose);
+        m.insert('^', TokenKind::Caret);
+        m.insert(':', TokenKind::Colon);
+        m.insert(',', TokenKind::Comma);
+        m.insert('{', TokenKind::CurlyOpen);
+        m.insert('}', TokenKind::CurlyClose);
+        m.insert('=', TokenKind::Equals);
+        m.insert('!', TokenKind::ExclamationMark);
+        m.insert('-', TokenKind::Minus);
+        m.insert('(', TokenKind::ParenOpen);
+        m.insert(')', TokenKind::ParenClose);
+        m.insert('%', TokenKind::Percent);
+        m.insert('.', TokenKind::Period);
+        m.insert('|', TokenKind::Pipe);
+        m.insert('+', TokenKind::Plus);
+        m.insert('?', TokenKind::QuestionMark);
+        m.insert(';', TokenKind::Semicolon);
+        m.insert('/', TokenKind::Slash);
+        m.insert('~', TokenKind::Tilde);
+        m.insert('<', TokenKind::LessThan);
+        m.insert('>', TokenKind::GreaterThan);
         m
     };
 }
