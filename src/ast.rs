@@ -74,9 +74,9 @@ pub enum Expression {
     String(String),
 
     // Binary Operators
-    Add(Box<dyn ASTNode>, Box<dyn ASTNode>),
-    Sub(Box<dyn ASTNode>, Box<dyn ASTNode>),
-    Mult(Box<dyn ASTNode>, Box<dyn ASTNode>),
+    Add(Box<Expression>, Box<Expression>),
+    Sub(Box<Expression>, Box<Expression>),
+    Mult(Box<Expression>, Box<Expression>),
 }
 
 impl ASTNode for Expression {
