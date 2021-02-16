@@ -1,3 +1,5 @@
+#![feature(default_free_fn)]
+
 pub mod ast;
 pub mod js;
 pub mod parser;

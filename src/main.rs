@@ -45,7 +45,7 @@ fn main() {
 
     let mut parser = Parser::new(
         r#"
-            4 + (6 - 9) * 2
+            4 + 2 * 6 - 9
         "#,
     );
 

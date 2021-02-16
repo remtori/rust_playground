@@ -1,6 +1,8 @@
 pub mod lexer;
 pub mod token;
 
+use std::default::default;
+
 use crate::ast::*;
 use lexer::Lexer;
 use token::{Token, TokenKind};
@@ -37,16 +39,26 @@ impl<'s> Parser<'s> {
 
     fn parse_statement(&mut self) -> Statement {
         if self.match_expression() {
-            return Statement::ExpressionStatement(self.parse_expression());
+            return Statement::ExpressionStatement(self.parse_expression(0, Associativity::Right));
         }
 
         unreachable!();
     }
 
-    fn parse_expression(&mut self) -> Expression {
+    fn parse_expression(&mut self, min_precedence: u32, associativity: Associativity) -> Expression {
         let mut expr = self.parse_primary_expression();
         while self.match_secondary_expression() {
-            expr = self.parse_secondary_expression(expr);
+            let new_precedence = token_precedence(&self.current_token.kind());
+            if (new_precedence < min_precedence)
+            || (new_precedence == min_precedence && associativity == Associativity::Left) {
+                break;
+            }
+
+            expr = self.parse_secondary_expression(
+                expr,
+                new_precedence,
+                operator_associativity(&self.current_token.kind())
+            );
         }
 
         expr
@@ -56,7 +68,7 @@ impl<'s> Parser<'s> {
         match self.current_token.kind() {
             TokenKind::ParenOpen => {
                 self.consume_token(TokenKind::ParenOpen);
-                let expr = self.parse_expression();
+                let expr = self.parse_expression(0, default());
                 self.consume_token(TokenKind::ParenClose);
                 expr
             }
@@ -68,19 +80,19 @@ impl<'s> Parser<'s> {
         }
     }
 
-    fn parse_secondary_expression(&mut self, lhs: Expression) -> Expression {
+    fn parse_secondary_expression(&mut self, lhs: Expression, min_precedence: u32, associativity: Associativity) -> Expression {
         match self.current_token.kind() {
             TokenKind::Plus => {
                 self.consume();
-                Expression::Add(Box::new(lhs), Box::new(self.parse_expression()))
+                Expression::Add(Box::new(lhs), Box::new(self.parse_expression(min_precedence, associativity)))
             }
             TokenKind::Minus => {
                 self.consume();
-                Expression::Sub(Box::new(lhs), Box::new(self.parse_expression()))
+                Expression::Sub(Box::new(lhs), Box::new(self.parse_expression(min_precedence, associativity)))
             }
             TokenKind::Asterisk => {
                 self.consume();
-                Expression::Mult(Box::new(lhs), Box::new(self.parse_expression()))
+                Expression::Mult(Box::new(lhs), Box::new(self.parse_expression(min_precedence, associativity)))
             }
             _ => unreachable!(),
         }
@@ -183,7 +195,7 @@ impl<'s> Parser<'s> {
                 | TokenKind::PlusPlus
                 | TokenKind::MinusMinus
                 | TokenKind::In
-                | TokenKind::Instanceof
+                | TokenKind::InstanceOf
                 | TokenKind::QuestionMark
                 | TokenKind::Ampersand
                 | TokenKind::AmpersandEquals
@@ -218,5 +230,140 @@ impl<'s> Parser<'s> {
         let old_token = self.current_token;
         self.current_token = self.lexer.next_token();
         old_token
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub enum Associativity {
+    Left,
+    Right,
+}
+
+impl Default for Associativity {
+    fn default() -> Associativity {
+        Associativity::Right
+    }
+}
+
+fn operator_associativity(tk: &TokenKind) -> Associativity {
+    match tk {
+        TokenKind::Period
+        | TokenKind::BracketOpen
+        | TokenKind::ParenOpen
+        | TokenKind::QuestionMarkPeriod
+        | TokenKind::Asterisk
+        | TokenKind::Slash
+        | TokenKind::Percent
+        | TokenKind::Plus
+        | TokenKind::Minus
+        | TokenKind::ShiftLeft
+        | TokenKind::ShiftRight
+        | TokenKind::UnsignedShiftRight
+        | TokenKind::LessThan
+        | TokenKind::LessThanEquals
+        | TokenKind::GreaterThan
+        | TokenKind::GreaterThanEquals
+        | TokenKind::In
+        | TokenKind::InstanceOf
+        | TokenKind::EqualsEquals
+        | TokenKind::ExclamationMarkEquals
+        | TokenKind::EqualsEqualsEquals
+        | TokenKind::ExclamationMarkEqualsEquals
+        | TokenKind::Typeof
+        | TokenKind::Void
+        | TokenKind::Delete
+        | TokenKind::Ampersand
+        | TokenKind::Caret
+        | TokenKind::Pipe
+        | TokenKind::DoubleQuestionMark
+        | TokenKind::DoubleAmpersand
+        | TokenKind::DoublePipe
+        | TokenKind::Comma
+        => Associativity::Left,
+
+        _ => Associativity::Right,
+    }
+}
+
+fn token_precedence(tk: &TokenKind) -> u32 {
+    match tk {
+        TokenKind::Period
+        | TokenKind::BracketOpen
+        | TokenKind::ParenOpen
+        | TokenKind::QuestionMarkPeriod => 20,
+
+        TokenKind::New => 19,
+
+        TokenKind::PlusPlus
+        | TokenKind::MinusMinus => 18,
+
+        TokenKind::ExclamationMark
+        | TokenKind::Tilde
+        | TokenKind::Typeof
+        | TokenKind::Void
+        | TokenKind::Delete
+        | TokenKind::Await => 17,
+
+        TokenKind::DoubleAsterisk => 16,
+
+        TokenKind::Asterisk
+        | TokenKind::Slash
+        | TokenKind::Percent => 15,
+
+        TokenKind::Plus
+        | TokenKind::Minus => 14,
+
+        TokenKind::ShiftLeft
+        | TokenKind::ShiftRight
+        | TokenKind::UnsignedShiftRight => 13,
+
+        TokenKind::LessThan
+        | TokenKind::LessThanEquals
+        | TokenKind::GreaterThan
+        | TokenKind::GreaterThanEquals
+        | TokenKind::In
+        | TokenKind::InstanceOf => 12,
+
+        TokenKind::EqualsEquals
+        | TokenKind::ExclamationMarkEquals
+        | TokenKind::EqualsEqualsEquals
+        | TokenKind::ExclamationMarkEqualsEquals => 11,
+
+        TokenKind::Ampersand => 10,
+
+        TokenKind::Caret => 9,
+
+        TokenKind::Pipe => 8,
+
+        TokenKind::DoubleQuestionMark => 7,
+
+        TokenKind::DoubleAmpersand => 6,
+
+        TokenKind::DoublePipe => 5,
+
+        TokenKind::QuestionMark => 4,
+
+        TokenKind::Equals
+        | TokenKind::PlusEquals
+        | TokenKind::MinusEquals
+        | TokenKind::DoubleAsteriskEquals
+        | TokenKind::AsteriskEquals
+        | TokenKind::SlashEquals
+        | TokenKind::PercentEquals
+        | TokenKind::ShiftLeftEquals
+        | TokenKind::ShiftRightEquals
+        | TokenKind::UnsignedShiftRightEquals
+        | TokenKind::AmpersandEquals
+        | TokenKind::CaretEquals
+        | TokenKind::PipeEquals
+        | TokenKind::DoubleAmpersandEquals
+        | TokenKind::DoublePipeEquals
+        | TokenKind::DoubleQuestionMarkEquals => 3,
+
+        TokenKind::Yield => 2,
+
+        TokenKind::Comma => 1,
+
+        _ => unreachable!(),
     }
 }
