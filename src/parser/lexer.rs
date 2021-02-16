@@ -320,7 +320,7 @@ lazy_static! {
         m.insert("if", TokenKind::If);
         m.insert("import", TokenKind::Import);
         m.insert("in", TokenKind::In);
-        m.insert("instanceof", TokenKind::Instanceof);
+        m.insert("instanceof", TokenKind::InstanceOf);
         m.insert("let", TokenKind::Let);
         m.insert("new", TokenKind::New);
         m.insert("null", TokenKind::NullLiteral);

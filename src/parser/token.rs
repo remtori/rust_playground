@@ -91,7 +91,7 @@ impl<'l> Token<'l> {
                 | TokenKind::If
                 | TokenKind::Import
                 | TokenKind::In
-                | TokenKind::Instanceof
+                | TokenKind::InstanceOf
                 | TokenKind::Interface
                 | TokenKind::Let
                 | TokenKind::New
@@ -133,7 +133,7 @@ pub enum TokenKind {
     Implements,
     Import,
     In,
-    Instanceof,
+    InstanceOf,
     Interface,
     Let,
     New,
