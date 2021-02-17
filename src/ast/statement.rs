@@ -10,7 +10,7 @@ impl ASTNode for Statement {
     fn eval(&mut self, context: &mut Context) -> Value {
         match self {
             Statement::ExpressionStatement(expr) => expr.eval(context),
-            _ => todo!()
+            Statement::VariableDeclaration(vd) => vd.eval(context),
         }
     }
 }
@@ -23,13 +23,31 @@ pub enum DeclarationKind {
 }
 
 #[derive(Debug)]
-pub struct VariableDeclarator {
-    identifier: Identifier,
-    expression: Expression,
+pub struct VariableDeclaration {
+    pub(crate) kind: DeclarationKind,
+    pub(crate) declarations: Vec<(Identifier, Expression)>,
 }
 
-#[derive(Debug)]
-pub struct VariableDeclaration {
-    kind: DeclarationKind,
-    declarations: Vec<VariableDeclarator>,
+impl ASTNode for VariableDeclaration {
+    fn eval(&mut self, context: &mut Context) -> Value {
+        for (id, init) in self.declarations.iter_mut() {
+            let init_value = init.eval(context);
+            context.set_variable(id.name().clone(), init_value);
+        }
+
+        Value::Undefined
+    }
+}
+
+impl VariableDeclaration {
+    pub fn new(kind: DeclarationKind) -> VariableDeclaration {
+        VariableDeclaration {
+            kind,
+            declarations: Vec::new(),
+        }
+    }
+
+    pub fn add(&mut self, identifier: Identifier, initializer: Expression) {
+        self.declarations.push((identifier, initializer));
+    }
 }
