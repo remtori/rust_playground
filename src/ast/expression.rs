@@ -32,8 +32,22 @@ impl ASTNode for Identifier {
 pub enum Literal {
     Null,
     Boolean(bool),
-    Numeric(f64),
+    Integer(i32),
+    Rational(f64),
+    BigInt(()),
     String(String),
+}
+
+impl Literal {
+    pub fn number_from_str(str: &str) -> Literal {
+        if let Ok(v) = str.parse::<i32>() {
+            Literal::Integer(v)
+        } else if let Ok(v) = str.parse::<f64>() {
+            Literal::Rational(v)
+        } else {
+            Literal::Rational(f64::NAN)
+        }
+    }
 }
 
 impl ASTNode for Literal {
@@ -41,46 +55,27 @@ impl ASTNode for Literal {
         match self {
             Literal::Null => Value::Null,
             Literal::Boolean(b) => Value::Boolean(*b),
-            Literal::Numeric(v) => Value::Number(*v),
+            Literal::Integer(v) => Value::Integer(*v),
+            Literal::Rational(v) => Value::Rational(*v),
+            Literal::BigInt(_) => todo!(),
             Literal::String(s) => Value::String(s.clone()),
         }
     }
 }
 
 #[derive(Debug, PartialEq)]
-pub enum BinaryOp {
-
-    // Numeric operators
-    Addition,
-    Subtraction,
-    Multiplication,
-    Division,
-    Modulo,
-    Exponent,
-
-    // Bitwise operators
+pub enum BitwiseOp {
     Or,
     And,
     Xor,
     ShiftLeft,
     ShiftRight,
     UnsignedShiftRight,
+}
 
-    // Logical operators
-    BoolOr,
-    BoolAnd,
 
-    // Comparision operators
-    Equal,
-    NotEqual,
-    StrictEqual,
-    StrictNotEqual,
-    GreaterThan,
-    GreaterThanOrEqual,
-    LessThan,
-    LessThanOrEqual,
-
-    // Assignment operators
+#[derive(Debug, PartialEq)]
+pub enum AssignmentOp {
     AdditionAssignment,
     SubtractionAssignment,
     MultiplicationAssignment,
@@ -98,9 +93,42 @@ pub enum BinaryOp {
 
     BoolAndAssignment,
     BoolOrAssignment,
+}
 
+#[derive(Debug, PartialEq)]
+pub enum NumericOp {
+    Addition,
+    Subtraction,
+    Multiplication,
+    Division,
+    Modulo,
+    Exponent,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum CompareOp {
+    Equal,
+    NotEqual,
+    StrictEqual,
+    StrictNotEqual,
+    GreaterThan,
+    GreaterThanOrEqual,
+    LessThan,
+    LessThanOrEqual,
     In,
     InstanceOf,
+}
+
+#[derive(Debug)]
+pub enum BinaryOp {
+    // Logical operators
+    BoolOr,
+    BoolAnd,
+
+    NumericOp(NumericOp),
+    CompareOp(CompareOp),
+    BitwiseOp(BitwiseOp),
+    AssignmentOp(AssignmentOp),
 }
 
 #[derive(Debug)]
@@ -118,13 +146,125 @@ impl BinaryOperation {
             rhs: Box::new(rhs),
         }
     }
+
+    pub fn numeric(op: NumericOp, lhs: Expression, rhs: Expression) -> BinaryOperation {
+        Self::new(BinaryOp::NumericOp(op), lhs, rhs)
+    }
+
+    pub fn compare(op: CompareOp, lhs: Expression, rhs: Expression) -> BinaryOperation {
+        Self::new(BinaryOp::CompareOp(op), lhs, rhs)
+    }
+
+    pub fn bitwise(op: BitwiseOp, lhs: Expression, rhs: Expression) -> BinaryOperation {
+        Self::new(BinaryOp::BitwiseOp(op), lhs, rhs)
+    }
+
+    pub fn assignment(op: AssignmentOp, lhs: Expression, rhs: Expression) -> BinaryOperation {
+        Self::new(BinaryOp::AssignmentOp(op), lhs, rhs)
+    }
+}
+
+impl BinaryOperation {
+    fn do_numeric_op(&mut self, context: &mut Context) -> Value {
+        if let BinaryOp::NumericOp(op) = &self.op {
+            let left_value = self.lhs.eval(context).to_numeric();
+            let right_value = self.rhs.eval(context).to_numeric();
+
+            if let Value::Integer(left) = left_value {
+                if let Value::Integer(right) = right_value {
+                    return match op {
+                        NumericOp::Addition => Value::Integer(left + right),
+                        NumericOp::Subtraction => Value::Integer(left - right),
+                        NumericOp::Multiplication => Value::Integer(left * right),
+                        NumericOp::Modulo => Value::Integer(left % right),
+                        NumericOp::Division => {
+                            let result = left / right;
+                            if result * right == left {
+                                Value::Integer(result)
+                            } else {
+                                Value::Rational((left as f64) / (right as f64))
+                            }
+                        },
+                        NumericOp::Exponent => {
+                            if right >= 0 {
+                                Value::Integer(left.pow(right as u32))
+                            } else {
+                                Value::Rational((left as f64).powi(right))
+                            }
+                        }
+                        _ => todo!(),
+                    };
+                }
+            }
+
+            match (&left_value, &right_value) {
+                (Value::Integer(_), Value::Rational(_))
+                | (Value::Rational(_), Value::Integer(_))
+                | (Value::Rational(_), Value::Rational(_))
+                => {
+                    let left = left_value.as_f64();
+                    let right = right_value.as_f64();
+
+                    return match op {
+                        NumericOp::Addition => Value::Rational(left + right),
+                        NumericOp::Subtraction => Value::Rational(left - right),
+                        NumericOp::Multiplication => Value::Rational(left * right),
+                        NumericOp::Modulo => Value::Rational(left % right),
+                        NumericOp::Division => Value::Rational(left / right),
+                        NumericOp::Exponent => Value::Rational(left.powf(right)),
+                        _ => todo!(),
+                    };
+                }
+                _ => {
+                    if op == &NumericOp::Addition {
+                        let mut res = left_value.to_string();
+                        res.push_str(&right_value.to_string());
+                        return Value::String(res);
+                    }
+
+                    return Value::nan();
+                }
+            }
+        }
+
+        unreachable!()
+    }
+
+    fn do_compare_op(&mut self, context: &mut Context) -> Value {
+        todo!()
+    }
+
+    fn do_bitwise_op(&mut self, context: &mut Context) -> Value {
+        if let BinaryOp::BitwiseOp(op) = &self.op {
+            let left_value = self.lhs.eval(context);
+            let right_value = self.rhs.eval(context);
+
+            // return match op {
+            //     BitwiseOp::Or => {}
+            //     BitwiseOp::And => {}
+            //     BitwiseOp::Xor => {}
+            //     BitwiseOp::ShiftLeft => {}
+            //     BitwiseOp::ShiftRight => {}
+            //     BitwiseOp::UnsignedShiftRight => {}
+            // }
+        }
+
+        unreachable!()
+    }
+
+    fn do_assignment_op(&mut self, context: &mut Context) -> Value {
+        todo!()
+    }
 }
 
 impl ASTNode for BinaryOperation {
     fn eval(&mut self, context: &mut Context) -> Value {
-
-        // Handle optional evaluation, ex: obj = obj || {}
         match self.op {
+            BinaryOp::NumericOp(_) => self.do_numeric_op(context),
+            BinaryOp::CompareOp(_) => self.do_compare_op(context),
+            BinaryOp::BitwiseOp(_) => self.do_bitwise_op(context),
+            BinaryOp::AssignmentOp(_) => self.do_assignment_op(context),
+
             BinaryOp::BoolAnd => {
                 let left_value = self.lhs.eval(context);
                 if left_value.to_boolean() {
@@ -141,28 +281,6 @@ impl ASTNode for BinaryOperation {
 
                 return left_value;
             },
-            _ => {},
         }
-
-        let left_value = self.lhs.eval(context);
-        let right_value = self.rhs.eval(context);
-        if let Value::Number(left_number) = left_value.to_number() {
-            if let Value::Number(right_number) = right_value.to_number() {
-                return match self.op {
-                    BinaryOp::Addition => Value::Number(left_number + right_number),
-                    BinaryOp::Subtraction => Value::Number(left_number - right_number),
-                    BinaryOp::Multiplication => Value::Number(left_number * right_number),
-                    _ => unreachable!(),
-                };
-            }
-        }
-
-        if self.op == BinaryOp::Addition {
-            let mut res = left_value.to_string();
-            res.push_str(&right_value.to_string());
-            return Value::String(res);
-        }
-
-        Value::Number(f64::NAN)
     }
 }
