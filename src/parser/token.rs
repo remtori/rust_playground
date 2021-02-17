@@ -40,11 +40,6 @@ impl<'l> Token<'l> {
         self.kind
     }
 
-    pub fn double_value(&self) -> f64 {
-        assert_eq!(self.kind, TokenKind::NumericLiteral);
-        self.value.parse::<f64>().unwrap()
-    }
-
     pub fn bool_value(&self) -> bool {
         assert_eq!(self.kind, TokenKind::BoolLiteral);
         self.value.eq("true")
@@ -56,6 +51,10 @@ impl<'l> Token<'l> {
 
     pub fn trivia(&self) -> &str {
         self.trivia
+    }
+
+    pub fn value(&self) -> &str {
+        self.value
     }
 
     pub fn line_number(&self) -> usize {
