@@ -23,8 +23,24 @@ pub struct Identifier {
 }
 
 impl ASTNode for Identifier {
-    fn eval(&mut self, _context: &mut Context) -> Value {
-        todo!()
+    fn eval(&mut self, context: &mut Context) -> Value {
+        if let Some(v) = context.get_variable(&self.name) {
+            v
+        } else {
+            Value::Undefined
+        }
+    }
+}
+
+impl Identifier {
+    pub fn new(str: &str) -> Identifier {
+        Identifier {
+            name: String::from(str)
+        }
+    }
+
+    pub fn name(&self) -> &String {
+        &self.name
     }
 }
 
