@@ -166,68 +166,68 @@ impl BinaryOperation {
 
 impl BinaryOperation {
     fn do_numeric_op(&mut self, context: &mut Context) -> Value {
-        if let BinaryOp::NumericOp(op) = &self.op {
-            let left_value = self.lhs.eval(context).to_numeric();
-            let right_value = self.rhs.eval(context).to_numeric();
+        let op = if let BinaryOp::NumericOp(op) = &self.op {
+           op
+        } else {
+            panic!("Called do_numeric_op on non-numeric operation");
+        };
 
-            if let Value::Integer(left) = left_value {
-                if let Value::Integer(right) = right_value {
-                    return match op {
-                        NumericOp::Addition => Value::Integer(left + right),
-                        NumericOp::Subtraction => Value::Integer(left - right),
-                        NumericOp::Multiplication => Value::Integer(left * right),
-                        NumericOp::Modulo => Value::Integer(left % right),
-                        NumericOp::Division => {
-                            let result = left / right;
-                            if result * right == left {
-                                Value::Integer(result)
-                            } else {
-                                Value::Rational((left as f64) / (right as f64))
-                            }
-                        },
-                        NumericOp::Exponent => {
-                            if right >= 0 {
-                                Value::Integer(left.pow(right as u32))
-                            } else {
-                                Value::Rational((left as f64).powi(right))
-                            }
+        let left_value = self.lhs.eval(context).to_numeric();
+        let right_value = self.rhs.eval(context).to_numeric();
+
+        if let Value::Integer(left) = left_value {
+            if let Value::Integer(right) = right_value {
+                return match op {
+                    NumericOp::Addition => Value::Integer(left + right),
+                    NumericOp::Subtraction => Value::Integer(left - right),
+                    NumericOp::Multiplication => Value::Integer(left * right),
+                    NumericOp::Modulo => Value::Integer(left % right),
+                    NumericOp::Division => {
+                        let result = left / right;
+                        if result * right == left {
+                            Value::Integer(result)
+                        } else {
+                            Value::Rational((left as f64) / (right as f64))
                         }
-                        _ => todo!(),
-                    };
-                }
-            }
-
-            match (&left_value, &right_value) {
-                (Value::Integer(_), Value::Rational(_))
-                | (Value::Rational(_), Value::Integer(_))
-                | (Value::Rational(_), Value::Rational(_))
-                => {
-                    let left = left_value.as_f64();
-                    let right = right_value.as_f64();
-
-                    return match op {
-                        NumericOp::Addition => Value::Rational(left + right),
-                        NumericOp::Subtraction => Value::Rational(left - right),
-                        NumericOp::Multiplication => Value::Rational(left * right),
-                        NumericOp::Modulo => Value::Rational(left % right),
-                        NumericOp::Division => Value::Rational(left / right),
-                        NumericOp::Exponent => Value::Rational(left.powf(right)),
-                        _ => todo!(),
-                    };
-                }
-                _ => {
-                    if op == &NumericOp::Addition {
-                        let mut res = left_value.to_string();
-                        res.push_str(&right_value.to_string());
-                        return Value::String(res);
+                    },
+                    NumericOp::Exponent => {
+                        if right >= 0 {
+                            Value::Integer(left.pow(right as u32))
+                        } else {
+                            Value::Rational((left as f64).powi(right))
+                        }
                     }
-
-                    return Value::nan();
-                }
+                };
             }
         }
 
-        unreachable!()
+        match (&left_value, &right_value) {
+            (Value::Integer(_), Value::Rational(_))
+            | (Value::Rational(_), Value::Integer(_))
+            | (Value::Rational(_), Value::Rational(_))
+            => {
+                let left = left_value.as_f64();
+                let right = right_value.as_f64();
+
+                return match op {
+                    NumericOp::Addition => Value::Rational(left + right),
+                    NumericOp::Subtraction => Value::Rational(left - right),
+                    NumericOp::Multiplication => Value::Rational(left * right),
+                    NumericOp::Modulo => Value::Rational(left % right),
+                    NumericOp::Division => Value::Rational(left / right),
+                    NumericOp::Exponent => Value::Rational(left.powf(right)),
+                };
+            }
+            _ => {}
+        }
+
+        if op == &NumericOp::Addition {
+            let mut res = left_value.to_string();
+            res.push_str(&right_value.to_string());
+            return Value::String(res);
+        }
+
+        Value::nan()
     }
 
     fn do_compare_op(&mut self, context: &mut Context) -> Value {
@@ -238,15 +238,19 @@ impl BinaryOperation {
         if let BinaryOp::BitwiseOp(op) = &self.op {
             let left_value = self.lhs.eval(context);
             let right_value = self.rhs.eval(context);
+            let left = left_value.to_i32();
+            let right = right_value.to_i32();
 
-            // return match op {
-            //     BitwiseOp::Or => {}
-            //     BitwiseOp::And => {}
-            //     BitwiseOp::Xor => {}
-            //     BitwiseOp::ShiftLeft => {}
-            //     BitwiseOp::ShiftRight => {}
-            //     BitwiseOp::UnsignedShiftRight => {}
-            // }
+            return match op {
+                BitwiseOp::Or => Value::Integer(left | right),
+                BitwiseOp::And => Value::Integer(left & right),
+                BitwiseOp::Xor => Value::Integer(left ^ right),
+                BitwiseOp::ShiftLeft => Value::Integer(left << (right % 32)),
+                BitwiseOp::ShiftRight => Value::Integer(left >> (right % 32)),
+                BitwiseOp::UnsignedShiftRight => Value::Integer(
+                    (left_value.to_u32() >> (right_value.to_u32() % 32)) as i32
+                ),
+            }
         }
 
         unreachable!()
@@ -268,18 +272,18 @@ impl ASTNode for BinaryOperation {
             BinaryOp::BoolAnd => {
                 let left_value = self.lhs.eval(context);
                 if left_value.to_boolean() {
-                    return self.rhs.eval(context);
+                    self.rhs.eval(context)
+                } else {
+                    left_value
                 }
-
-                return left_value;
             },
             BinaryOp::BoolOr => {
                 let left_value = self.lhs.eval(context);
                 if !left_value.to_boolean() {
-                    return self.rhs.eval(context);
+                    self.rhs.eval(context)
+                } else {
+                    left_value
                 }
-
-                return left_value;
             },
         }
     }
