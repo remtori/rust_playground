@@ -1,6 +1,8 @@
 use std::*;
+
 use crate::*;
 
+#[derive(Clone)]
 pub enum Value {
     Undefined,
     Null,
@@ -21,7 +23,7 @@ pub enum PreferredType {
 
 impl ast::ASTNode for Value {
     fn eval(&mut self, _: &mut Context) -> Value {
-        *self
+        self.clone()
     }
 }
 
@@ -49,6 +51,22 @@ impl fmt::Debug for Value {
 
 impl Value {
 
+    // Constructors
+
+    pub fn nan() -> Value {
+        Value::Rational(f64::NAN)
+    }
+
+    // Utility
+
+    pub fn as_f64(&self) -> f64 {
+        match self {
+            Value::Rational(v) => *v,
+            Value::Integer(v) => *v as f64,
+            _ => panic!("Failed to cast {} as f64", self)
+        }
+    }
+
     pub fn is_null(&self) -> bool {
         matches!(self, Value::Null)
     }
@@ -75,16 +93,17 @@ impl Value {
         } else if let Ok(v) = str.parse::<f64>() {
             Value::Rational(v)
         } else {
-            Value::Rational(f64::NAN)
+            Value::nan()
         }
     }
 
-    /// JS Value type conversion
+    // JS Value type conversion
+
     pub fn to_primitive(&self, _preferred_type: PreferredType) -> Value {
         if let Value::Object(_obj) = self {
             todo!()
         } else {
-            *self
+            self.clone()
         }
     }
 
@@ -96,20 +115,22 @@ impl Value {
             Value::Rational(v) => !(v.is_nan() && *v == 0.0),
             Value::Integer(v) => *v == 0,
             Value::BigInt(_) => todo!(),
+            Value::Symbol(_) => true,
             Value::String(s) => !s.is_empty(),
             Value::Object(_) => true,
+
         }
     }
 
     pub fn to_number(&self) -> Value {
         match self {
-            Value::Undefined => Value::Rational(f64::NAN),
+            Value::Undefined => Value::nan(),
             Value::Null => Value::Integer(0),
             Value::Boolean(b) => Value::Integer(if *b { 1 } else { 0 }),
-            Value::Rational(_) => *self,
-            Value::Integer(_) => *self,
-            Value::BigInt(_) => todo!("TypeError"),
-            Value::Symbol(_) => todo!("TypeError"),
+            Value::Rational(_) => self.clone(),
+            Value::Integer(_) => self.clone(),
+            Value::BigInt(_) => panic!("TypeError"),
+            Value::Symbol(_) => panic!("TypeError"),
             Value::String(s) => Value::Rational(*s.parse::<f64>().ok().get_or_insert(f64::NAN)),
             Value::Object(_) => self.to_primitive(PreferredType::Number).to_number(),
         }
@@ -124,17 +145,18 @@ impl Value {
         }
     }
 
+    #[allow(clippy::inherent_to_string_shadow_display)]
     pub fn to_string(&self) -> String {
-        match self {
+        match &self {
             Value::Undefined => "undefined".to_owned(),
             Value::Null => "null".to_owned(),
             Value::Boolean(v) => v.to_string(),
             Value::Rational(v) => v.to_string(),
             Value::Integer(v) => v.to_string(),
             Value::BigInt(_) => todo!(),
-            Value::String(v) => *v,
+            Value::String(v) => v.clone(),
             Value::Object(_) => self.to_primitive(PreferredType::String).to_string(),
-            Value::Symbol(_) => todo!("TypeError"),
+            Value::Symbol(_) => panic!("TypeError"),
         }
     }
 }
