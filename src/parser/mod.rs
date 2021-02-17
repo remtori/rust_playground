@@ -26,7 +26,9 @@ impl<'s> Parser<'s> {
         let mut program = Program::new();
 
         while !self.done() {
-            if self.match_statement() {
+            if self.match_declaration() {
+                program.add_statement(self.parse_declaration());
+            } else if self.match_statement() {
                 program.add_statement(self.parse_statement());
             } else {
                 self.consume();
@@ -37,8 +39,14 @@ impl<'s> Parser<'s> {
         program
     }
 
+    fn parse_declaration(&mut self) -> Statement {
+        todo!()
+    }
+
     fn parse_statement(&mut self) -> Statement {
-        if self.match_expression() {
+        if self.match_variable_declaration() {
+
+        } else if self.match_expression() {
             return Statement::ExpressionStatement(self.parse_expression(0, Associativity::Right));
         }
 
@@ -72,10 +80,10 @@ impl<'s> Parser<'s> {
                 self.consume_token(TokenKind::ParenClose);
                 expr
             }
-            TokenKind::BoolLiteral => Expression::Boolean(self.consume().bool_value()),
-            TokenKind::NullLiteral => Expression::Null,
-            TokenKind::StringLiteral => Expression::String(self.consume().string_value()),
-            TokenKind::NumericLiteral => Expression::Numeric(self.consume().double_value()),
+            TokenKind::BoolLiteral => Expression::Literal(Literal::Boolean(self.consume().bool_value())),
+            TokenKind::NullLiteral => Expression::Literal(Literal::Null),
+            TokenKind::StringLiteral => Expression::Literal(Literal::String(self.consume().string_value())),
+            TokenKind::NumericLiteral => Expression::Literal(Literal::Numeric(self.consume().double_value())),
             _ => unreachable!(),
         }
     }
@@ -84,15 +92,33 @@ impl<'s> Parser<'s> {
         match self.current_token.kind() {
             TokenKind::Plus => {
                 self.consume();
-                Expression::Add(Box::new(lhs), Box::new(self.parse_expression(min_precedence, associativity)))
+                Expression::BinaryOperation(
+                    BinaryOperation::new(
+                        BinaryOp::Addition,
+                        lhs,
+                        self.parse_expression(min_precedence, associativity)
+                    )
+                )
             }
             TokenKind::Minus => {
                 self.consume();
-                Expression::Sub(Box::new(lhs), Box::new(self.parse_expression(min_precedence, associativity)))
+                Expression::BinaryOperation(
+                    BinaryOperation::new(
+                        BinaryOp::Subtraction,
+                        lhs,
+                        self.parse_expression(min_precedence, associativity)
+                    )
+                )
             }
             TokenKind::Asterisk => {
                 self.consume();
-                Expression::Mult(Box::new(lhs), Box::new(self.parse_expression(min_precedence, associativity)))
+                Expression::BinaryOperation(
+                    BinaryOperation::new(
+                        BinaryOp::Multiplication,
+                        lhs,
+                        self.parse_expression(min_precedence, associativity)
+                    )
+                )
             }
             _ => unreachable!(),
         }
@@ -106,25 +132,44 @@ impl<'s> Parser<'s> {
         self.current_token.kind() == token_kind
     }
 
+    fn match_declaration(&self) -> bool {
+        matches!(
+            self.current_token.kind(),
+            TokenKind::Const
+            | TokenKind::Class
+            | TokenKind::Let
+            | TokenKind::Function
+        )
+    }
+
+    fn match_variable_declaration(&self) -> bool {
+        matches!(
+            self.current_token.kind(),
+            TokenKind::Const
+            | TokenKind::Let
+            | TokenKind::Var
+        )
+    }
+
     fn match_statement(&self) -> bool {
         self.match_expression()
             || matches!(
                 self.current_token.kind(),
-                TokenKind::Return
-                    | TokenKind::Do
-                    | TokenKind::If
-                    | TokenKind::Throw
-                    | TokenKind::Try
-                    | TokenKind::While
-                    | TokenKind::With
-                    | TokenKind::For
-                    | TokenKind::CurlyOpen
-                    | TokenKind::Switch
-                    | TokenKind::Break
-                    | TokenKind::Continue
-                    | TokenKind::Var
-                    | TokenKind::Debugger
-                    | TokenKind::Semicolon
+                TokenKind::Break
+                | TokenKind::Continue
+                | TokenKind::CurlyOpen
+                | TokenKind::Debugger
+                | TokenKind::Do
+                | TokenKind::For
+                | TokenKind::If
+                | TokenKind::Return
+                | TokenKind::Semicolon
+                | TokenKind::Switch
+                | TokenKind::Throw
+                | TokenKind::Try
+                | TokenKind::Var
+                | TokenKind::While
+                | TokenKind::With
             )
     }
 
@@ -132,21 +177,21 @@ impl<'s> Parser<'s> {
         self.match_unary_prefixed_expression()
             || matches!(
                 self.current_token.kind(),
-                TokenKind::BoolLiteral
-                    | TokenKind::NumericLiteral
-                    | TokenKind::BigIntLiteral
-                    | TokenKind::StringLiteral
-                    | TokenKind::TemplateLiteralStart
-                    | TokenKind::NullLiteral
-                    | TokenKind::Identifier
-                    | TokenKind::New
-                    | TokenKind::CurlyOpen
-                    | TokenKind::BracketOpen
-                    | TokenKind::ParenOpen
-                    | TokenKind::Function
-                    | TokenKind::This
-                    | TokenKind::Super
-                    | TokenKind::RegexLiteral,
+                TokenKind::BigIntLiteral
+                | TokenKind::BoolLiteral
+                | TokenKind::BracketOpen
+                | TokenKind::CurlyOpen
+                | TokenKind::Function
+                | TokenKind::Identifier
+                | TokenKind::New
+                | TokenKind::NullLiteral
+                | TokenKind::NumericLiteral
+                | TokenKind::ParenOpen
+                | TokenKind::RegexLiteral
+                | TokenKind::StringLiteral
+                | TokenKind::Super
+                | TokenKind::TemplateLiteralStart
+                | TokenKind::This
             )
     }
 
