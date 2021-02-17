@@ -57,13 +57,31 @@ impl Value {
         Value::Rational(f64::NAN)
     }
 
+    pub fn number_from_str(str: &str) -> Value {
+        if let Ok(v) = str.parse::<i32>() {
+            Value::Integer(v)
+        } else if let Ok(v) = str.parse::<f64>() {
+            Value::Rational(v)
+        } else {
+            Value::nan()
+        }
+    }
+
     // Utility
 
     pub fn as_f64(&self) -> f64 {
         match self {
             Value::Rational(v) => *v,
             Value::Integer(v) => *v as f64,
-            _ => panic!("Failed to cast {} as f64", self)
+            _ => panic!("Failed to cast {} as f64", self),
+        }
+    }
+
+    pub fn as_i32(&self) -> i32 {
+        match self {
+            Value::Rational(v) => *v as i32,
+            Value::Integer(v) => *v as i32,
+            _ => panic!("Failed to cast {} as T", self),
         }
     }
 
@@ -87,13 +105,11 @@ impl Value {
         }
     }
 
-    pub fn number_from_str(str: &str) -> Value {
-        if let Ok(v) = str.parse::<i32>() {
-            Value::Integer(v)
-        } else if let Ok(v) = str.parse::<f64>() {
-            Value::Rational(v)
+    pub fn is_infinity(&self) -> bool {
+        if let Value::Rational(v) = self {
+            v.is_infinite()
         } else {
-            Value::nan()
+            false
         }
     }
 
@@ -158,6 +174,111 @@ impl Value {
             Value::Object(_) => self.to_primitive(PreferredType::String).to_string(),
             Value::Symbol(_) => panic!("TypeError"),
         }
+    }
+
+    pub fn to_i32(&self) -> i32 {
+        let number = self.to_number().as_f64();
+
+        if number.is_infinite() || number.is_nan() || number == 0.0 {
+            return 0;
+        }
+
+        let mut int_value = number.abs().floor();
+        if number.is_sign_negative() {
+            int_value = -int_value;
+        }
+
+        let mut int32 = int_value % 4294967296.0;
+        if int32 > 2147483648.0 {
+            int32 -= 4294967296.0;
+        }
+
+        int32 as i32
+    }
+
+    pub fn to_u32(&self) -> u32 {
+        let number = self.to_number().as_f64();
+
+        if number.is_infinite() || number.is_nan() || number == 0.0 {
+            return 0;
+        }
+
+        let mut int_value = number.abs().floor();
+        if number.is_sign_negative() {
+            int_value = -int_value;
+        }
+
+        (int_value % 4294967296.0) as u32
+    }
+
+    pub fn to_i16(&self) -> i16 {
+        let number = self.to_number().as_f64();
+
+        if number.is_infinite() || number.is_nan() || number == 0.0 {
+            return 0;
+        }
+
+        let mut int_value = number.abs().floor();
+        if number.is_sign_negative() {
+            int_value = -int_value;
+        }
+
+        let mut int16 = int_value % 65536.0;
+        if int16 > 32768.0 {
+            int16 -= 65536.0;
+        }
+
+        int16 as i16
+    }
+
+    pub fn to_u16(&self) -> u16 {
+        let number = self.to_number().as_f64();
+
+        if number.is_infinite() || number.is_nan() || number == 0.0 {
+            return 0;
+        }
+
+        let mut int_value = number.abs().floor();
+        if number.is_sign_negative() {
+            int_value = -int_value;
+        }
+
+        (int_value % 65536.0) as u16
+    }
+
+    pub fn to_i8(&self) -> i8 {
+        let number = self.to_number().as_f64();
+
+        if number.is_infinite() || number.is_nan() || number == 0.0 {
+            return 0;
+        }
+
+        let mut int_value = number.abs().floor();
+        if number.is_sign_negative() {
+            int_value = -int_value;
+        }
+
+        let mut int8 = int_value % 256.0;
+        if int8 > 128.0 {
+            int8 -= 256.0;
+        }
+
+        int8 as i8
+    }
+
+    pub fn to_u8(&self) -> u8 {
+        let number = self.to_number().as_f64();
+
+        if number.is_infinite() || number.is_nan() || number == 0.0 {
+            return 0;
+        }
+
+        let mut int_value = number.abs().floor();
+        if number.is_sign_negative() {
+            int_value = -int_value;
+        }
+
+        (int_value % 256.0) as u8
     }
 }
 
