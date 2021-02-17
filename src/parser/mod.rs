@@ -28,11 +28,13 @@ impl<'s> Parser<'s> {
         while !self.done() {
             if self.match_declaration() {
                 program.add_statement(self.parse_declaration());
+                self.consume_or_insert_semicolon();
             } else if self.match_statement() {
                 program.add_statement(self.parse_statement());
+                self.consume_or_insert_semicolon();
             } else {
                 self.consume();
-                unreachable!();
+                panic!("ParseError");
             }
         }
 
@@ -40,17 +42,48 @@ impl<'s> Parser<'s> {
     }
 
     fn parse_declaration(&mut self) -> Statement {
-        todo!()
+        if self.match_variable_declaration() {
+            Statement::VariableDeclaration(self.parse_variable_declaration())
+        } else {
+            todo!()
+        }
     }
 
     fn parse_statement(&mut self) -> Statement {
         if self.match_variable_declaration() {
-
+            return Statement::VariableDeclaration(self.parse_variable_declaration());
         } else if self.match_expression() {
             return Statement::ExpressionStatement(self.parse_expression(0, Associativity::Right));
         }
 
-        unreachable!();
+        panic!("ParseError");
+    }
+
+    fn parse_variable_declaration(&mut self) -> VariableDeclaration {
+        let kind = match self.current_token.kind() {
+            TokenKind::Const => DeclarationKind::Const,
+            TokenKind::Let => DeclarationKind::Let,
+            TokenKind::Var => DeclarationKind::Var,
+            _ => unreachable!()
+        };
+        self.consume();
+
+        let mut vars = VariableDeclaration::new(kind);
+
+        loop {
+            let identifier = self.consume_token(TokenKind::Identifier);
+            self.consume_token(TokenKind::Equals);
+            let initializer = self.parse_expression(0, default());
+            vars.add(Identifier::new(identifier.value()), initializer);
+
+            if let TokenKind::Comma = self.current_token.kind() {
+                self.consume();
+            } else {
+                break;
+            }
+        }
+
+        vars
     }
 
     fn parse_expression(&mut self, min_precedence: u32, associativity: Associativity) -> Expression {
@@ -83,44 +116,193 @@ impl<'s> Parser<'s> {
             TokenKind::BoolLiteral => Expression::Literal(Literal::Boolean(self.consume().bool_value())),
             TokenKind::NullLiteral => Expression::Literal(Literal::Null),
             TokenKind::StringLiteral => Expression::Literal(Literal::String(self.consume().string_value())),
-            TokenKind::NumericLiteral => Expression::Literal(Literal::Numeric(self.consume().double_value())),
-            _ => unreachable!(),
+            TokenKind::NumericLiteral => Expression::Literal(Literal::number_from_str(self.consume().value())),
+            TokenKind::Identifier => Expression::Identifier(Identifier::new(self.consume().value())),
+            _ => todo!(),
         }
     }
 
     fn parse_secondary_expression(&mut self, lhs: Expression, min_precedence: u32, associativity: Associativity) -> Expression {
+
         match self.current_token.kind() {
             TokenKind::Plus => {
                 self.consume();
-                Expression::BinaryOperation(
-                    BinaryOperation::new(
-                        BinaryOp::Addition,
-                        lhs,
-                        self.parse_expression(min_precedence, associativity)
-                    )
-                )
+                Expression::BinaryOperation(BinaryOperation::numeric(NumericOp::Addition,lhs,self.parse_expression(min_precedence, associativity)))
             }
             TokenKind::Minus => {
                 self.consume();
-                Expression::BinaryOperation(
-                    BinaryOperation::new(
-                        BinaryOp::Subtraction,
-                        lhs,
-                        self.parse_expression(min_precedence, associativity)
-                    )
-                )
+                Expression::BinaryOperation(BinaryOperation::numeric(NumericOp::Subtraction, lhs, self.parse_expression(min_precedence, associativity)))
             }
             TokenKind::Asterisk => {
                 self.consume();
-                Expression::BinaryOperation(
-                    BinaryOperation::new(
-                        BinaryOp::Multiplication,
-                        lhs,
-                        self.parse_expression(min_precedence, associativity)
-                    )
-                )
+                Expression::BinaryOperation(BinaryOperation::numeric(NumericOp::Multiplication, lhs, self.parse_expression(min_precedence, associativity)))
+            }
+            TokenKind::Slash => {
+                self.consume();
+                Expression::BinaryOperation(BinaryOperation::numeric(NumericOp::Division, lhs, self.parse_expression(min_precedence, associativity)))
+            }
+            TokenKind::Percent => {
+                self.consume();
+                Expression::BinaryOperation(BinaryOperation::numeric(NumericOp::Modulo, lhs, self.parse_expression(min_precedence, associativity)))
+            }
+            TokenKind::DoubleAsterisk => {
+                self.consume();
+                Expression::BinaryOperation(BinaryOperation::numeric(NumericOp::Exponent, lhs, self.parse_expression(min_precedence, associativity)))
+            }
+            TokenKind::Pipe => {
+                self.consume();
+                Expression::BinaryOperation(BinaryOperation::bitwise(BitwiseOp::Or, lhs, self.parse_expression(min_precedence, associativity)))
+            }
+            TokenKind::Ampersand => {
+                self.consume();
+                Expression::BinaryOperation(BinaryOperation::bitwise(BitwiseOp::And, lhs, self.parse_expression(min_precedence, associativity)))
+            }
+            TokenKind::Caret => {
+                self.consume();
+                Expression::BinaryOperation(BinaryOperation::bitwise(BitwiseOp::Xor, lhs, self.parse_expression(min_precedence, associativity)))
+            }
+            TokenKind::ShiftLeft => {
+                self.consume();
+                Expression::BinaryOperation(BinaryOperation::bitwise(BitwiseOp::ShiftLeft, lhs, self.parse_expression(min_precedence, associativity)))
+            }
+            TokenKind::ShiftRight => {
+                self.consume();
+                Expression::BinaryOperation(BinaryOperation::bitwise(BitwiseOp::ShiftRight, lhs, self.parse_expression(min_precedence, associativity)))
+            }
+            TokenKind::UnsignedShiftRight => {
+                self.consume();
+                Expression::BinaryOperation(BinaryOperation::bitwise(BitwiseOp::UnsignedShiftRight, lhs, self.parse_expression(min_precedence, associativity)))
+            }
+            TokenKind::DoublePipe => {
+                self.consume();
+                Expression::BinaryOperation(BinaryOperation::new(BinaryOp::BoolOr, lhs, self.parse_expression(min_precedence, associativity)))
+            }
+            TokenKind::DoubleAmpersand => {
+                self.consume();
+                Expression::BinaryOperation(BinaryOperation::new(BinaryOp::BoolAnd, lhs, self.parse_expression(min_precedence, associativity)))
+            }
+            TokenKind::EqualsEquals => {
+                self.consume();
+                Expression::BinaryOperation(BinaryOperation::compare(CompareOp::Equal, lhs, self.parse_expression(min_precedence, associativity)))
+            }
+            TokenKind::ExclamationMarkEquals => {
+                self.consume();
+                Expression::BinaryOperation(BinaryOperation::compare(CompareOp::NotEqual, lhs, self.parse_expression(min_precedence, associativity)))
+            }
+            TokenKind::EqualsEqualsEquals => {
+                self.consume();
+                Expression::BinaryOperation(BinaryOperation::compare(CompareOp::StrictEqual, lhs, self.parse_expression(min_precedence, associativity)))
+            }
+            TokenKind::ExclamationMarkEqualsEquals => {
+                self.consume();
+                Expression::BinaryOperation(BinaryOperation::compare(CompareOp::StrictNotEqual, lhs, self.parse_expression(min_precedence, associativity)))
+            }
+            TokenKind::GreaterThan => {
+                self.consume();
+                Expression::BinaryOperation(BinaryOperation::compare(CompareOp::GreaterThan, lhs, self.parse_expression(min_precedence, associativity)))
+            }
+            TokenKind::GreaterThanEquals => {
+                self.consume();
+                Expression::BinaryOperation(BinaryOperation::compare(CompareOp::GreaterThanOrEqual, lhs, self.parse_expression(min_precedence, associativity)))
+            }
+            TokenKind::LessThan => {
+                self.consume();
+                Expression::BinaryOperation(BinaryOperation::compare(CompareOp::LessThan, lhs, self.parse_expression(min_precedence, associativity)))
+            }
+            TokenKind::LessThanEquals => {
+                self.consume();
+                Expression::BinaryOperation(BinaryOperation::compare(CompareOp::LessThanOrEqual, lhs, self.parse_expression(min_precedence, associativity)))
+            }
+            TokenKind::In => {
+                self.consume();
+                Expression::BinaryOperation(BinaryOperation::compare(CompareOp::In, lhs, self.parse_expression(min_precedence, associativity)))
+            }
+            TokenKind::InstanceOf => {
+                self.consume();
+                Expression::BinaryOperation(BinaryOperation::compare(CompareOp::InstanceOf, lhs, self.parse_expression(min_precedence, associativity)))
+            }
+            TokenKind::PlusEquals => {
+                self.parse_assignment_expression(AssignmentOp::AdditionAssignment, lhs, min_precedence, associativity)
+            }
+            TokenKind::MinusEquals => {
+                self.parse_assignment_expression(AssignmentOp::SubtractionAssignment, lhs, min_precedence, associativity)
+            }
+            TokenKind::AsteriskEquals => {
+                self.parse_assignment_expression(AssignmentOp::MultiplicationAssignment, lhs, min_precedence, associativity)
+            }
+            TokenKind::SlashEquals => {
+                self.parse_assignment_expression(AssignmentOp::DivisionAssignment, lhs, min_precedence, associativity)
+            }
+            TokenKind::PercentEquals => {
+                self.parse_assignment_expression(AssignmentOp::ModuloAssignment, lhs, min_precedence, associativity)
+            }
+            TokenKind::DoubleAsteriskEquals => {
+                self.parse_assignment_expression(AssignmentOp::ExponentAssignment, lhs, min_precedence, associativity)
+            }
+            TokenKind::AmpersandEquals => {
+                self.parse_assignment_expression(AssignmentOp::BitAndAssignment, lhs, min_precedence, associativity)
+            }
+            TokenKind::PipeEquals => {
+                self.parse_assignment_expression(AssignmentOp::BitOrAssignment, lhs, min_precedence, associativity)
+            }
+            TokenKind::CaretEquals => {
+                self.parse_assignment_expression(AssignmentOp::BitXorAssignment, lhs, min_precedence, associativity)
+            }
+            TokenKind::ShiftLeftEquals => {
+                self.parse_assignment_expression(AssignmentOp::ShiftLeftAssignment, lhs, min_precedence, associativity)
+            }
+            TokenKind::ShiftRightEquals => {
+                self.parse_assignment_expression(AssignmentOp::ShiftRightAssignment, lhs, min_precedence, associativity)
+            }
+            TokenKind::UnsignedShiftRightEquals => {
+                self.parse_assignment_expression(AssignmentOp::UnsignedShiftRightAssignment, lhs, min_precedence, associativity)
+            }
+            TokenKind::DoubleAmpersandEquals => {
+                self.parse_assignment_expression(AssignmentOp::BoolAndAssignment, lhs, min_precedence, associativity)
+            }
+            TokenKind::DoublePipeEquals => {
+                self.parse_assignment_expression(AssignmentOp::BoolOrAssignment, lhs, min_precedence, associativity)
             }
             _ => unreachable!(),
+        }
+    }
+
+    fn parse_assignment_expression(&mut self, op: AssignmentOp, lhs: Expression, min_precedence: u32, associativity: Associativity) -> Expression {
+        assert!(
+            matches!(self.current_token.kind(),
+                TokenKind::Equals
+                | TokenKind::PlusEquals
+                | TokenKind::MinusEquals
+                | TokenKind::AsteriskEquals
+                | TokenKind::SlashEquals
+                | TokenKind::PercentEquals
+                | TokenKind::DoubleAsteriskEquals
+                | TokenKind::AmpersandEquals
+                | TokenKind::PipeEquals
+                | TokenKind::CaretEquals
+                | TokenKind::ShiftLeftEquals
+                | TokenKind::ShiftRightEquals
+                | TokenKind::UnsignedShiftRightEquals
+                | TokenKind::DoubleAmpersandEquals
+                | TokenKind::DoublePipeEquals
+                | TokenKind::DoubleQuestionMarkEquals
+            )
+        );
+        self.consume();
+
+        if matches!(
+            lhs,
+            Expression::Identifier(_),
+        ) {
+           return Expression::BinaryOperation(BinaryOperation::assignment(op, lhs, self.parse_expression(min_precedence, associativity)));
+        }
+
+        panic!("ParseError")
+    }
+
+    fn consume_or_insert_semicolon(&mut self) {
+        if let TokenKind::Semicolon = self.current_token.kind() {
+            self.consume();
         }
     }
 
@@ -263,17 +445,18 @@ impl<'s> Parser<'s> {
         )
     }
 
-    fn consume_token(&mut self, token_kind: TokenKind) {
+    fn consume_token(&mut self, token_kind: TokenKind) -> Token<'s> {
         if self.match_token(token_kind) {
-            self.consume();
+            self.consume()
         } else {
-            unreachable!();
+            panic!("ParseError")
         }
     }
 
-    fn consume(&mut self) -> Token {
+    fn consume(&mut self) -> Token<'s> {
         let old_token = self.current_token;
         self.current_token = self.lexer.next_token();
+        println!("consumed: {:?}\n => next: {:?}", old_token, self.current_token);
         old_token
     }
 }

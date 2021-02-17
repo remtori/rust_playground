@@ -45,7 +45,13 @@ fn main() {
 
     let mut parser = Parser::new(
         r#"
-            (9 - 4) * 2 + 5
+            let a = 4
+            const b = 4, c = 6, d = 7 * 9;
+            var x = (9 - 4) * 2 + 5;
+            var y = a - b * c;
+            x
+            y
+            y + d
         "#,
     );
 
