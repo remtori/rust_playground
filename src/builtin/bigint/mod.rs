@@ -2,6 +2,7 @@ use std::*;
 use std::mem::size_of;
 
 pub mod indexing;
+mod operators;
 use indexing::*;
 
 #[derive(Debug, Default, Clone)]
@@ -153,3 +154,6 @@ impl fmt::Display for BigUInt {
         write!(f, "BigUInt({})", self.to_string())
     }
 }
+
+#[cfg(test)]
+mod tests;

@@ -59,3 +59,66 @@ fn set_bit() {
     n.set_bit(32, 1);
     assert_eq!(n.to_u64_clamp(), 12321u64 | (1u64 << 32));
 }
+
+#[test]
+fn ops_and() {
+    let a = BigUInt::from(123321123321);
+    let b = BigUInt::from(987789987789987);
+    let out = a & b;
+    assert_eq!(out.to_u64_clamp(), 123321123321 & 987789987789987);
+
+    let a = BigUInt::from(1234567890123);
+    let b = BigUInt::from(9876543210);
+    let out = a & b;
+    assert_eq!(out.to_u64_clamp(), 1234567890123 & 9876543210);
+
+    let mut out = BigUInt::from(33333333333);
+    out &= BigUInt::from(444444444);
+    assert_eq!(out.to_u64_clamp(), 33333333333 & 444444444);
+}
+
+#[test]
+fn ops_or() {
+    let a = BigUInt::from(123321123321);
+    let b = BigUInt::from(987789987789987);
+    let out = a | b;
+    assert_eq!(out.to_u64_clamp(), 123321123321 | 987789987789987);
+
+    let a = BigUInt::from(1234567890123);
+    let b = BigUInt::from(9876543210);
+    let out = a | b;
+    assert_eq!(out.to_u64_clamp(), 1234567890123 | 9876543210);
+
+    let mut out = BigUInt::from(33333333333);
+    out |= BigUInt::from(444444444);
+    assert_eq!(out.to_u64_clamp(), 33333333333 | 444444444);
+}
+
+#[test]
+fn ops_xor() {
+    let a = BigUInt::from(123321123321);
+    let b = BigUInt::from(987789987789987);
+    let out = a ^ b;
+    assert_eq!(out.to_u64_clamp(), 123321123321 ^ 987789987789987);
+
+    let a = BigUInt::from(1234567890123);
+    let b = BigUInt::from(9876543210);
+    let out = a ^ b;
+    assert_eq!(out.to_u64_clamp(), 1234567890123 ^ 9876543210);
+
+    let mut out = BigUInt::from(33333333333);
+    out ^= BigUInt::from(444444444);
+    assert_eq!(out.to_u64_clamp(), 33333333333 ^ 444444444);
+}
+
+#[test]
+fn ops_not() {
+    let n = BigUInt::from(123321123321);
+    assert_eq!((!n).to_u64_clamp(), !123321123321);
+
+    let n = BigUInt::from(987789987789987);
+    assert_eq!((!n).to_u64_clamp(), !987789987789987);
+
+    let n = BigUInt::from(33333333333);
+    assert_eq!((!n).to_u64_clamp(), !33333333333);
+}
