@@ -5,7 +5,7 @@ use rust_js::{
     js::Value,
     parser::{lexer::Lexer, token::TokenKind, Parser},
     Context,
-    builtin::BigInt,
+    builtin::BigUInt,
 };
 
 fn main() {
@@ -63,8 +63,8 @@ fn main() {
     //     println!("{:?}", statement.eval(&mut context));
     // }
 
-    let bi =  BigInt::from(1234567890123);
+    let bi =  BigUInt::from(1234567890123);
     // let bi =  BigInt::from(5);
     println!("bit_str={}", bi.to_bit_string());
-    println!("str    ={}", bi.to_string());
+    println!("str    ={}", bi);
 }
