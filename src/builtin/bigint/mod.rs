@@ -5,7 +5,7 @@ pub mod indexing;
 mod operators;
 use indexing::*;
 
-#[derive(Debug, Default, Clone)]
+#[derive(Default, Clone)]
 pub struct BigUInt {
     bit_count: usize,
     chunks: Vec<u32>,
@@ -57,9 +57,9 @@ impl BigUInt {
 
         // Iterate from MSB -> LSB
         for (idx, chunk) in self.chunks.iter().rev().enumerate() {
-            out <<= 32;
+            out <<= Self::CHUNK_BIT_SIZE;
             out |= *chunk as u64;
-            if idx > 1 {
+            if (idx + 1) * Self::CHUNK_SIZE > size_of::<u64>() {
                 return u64::MAX;
             }
         }
@@ -97,8 +97,8 @@ impl BigUInt {
         self.chunks.clear();
     }
 
-    #[allow(clippy::inherent_to_string_shadow_display)]
-    fn to_string(&self) -> String {
+    #[allow(clippy::inherent_to_string)]
+    pub fn to_string(&self) -> String {
         let mut out = String::with_capacity(self.bit_count() / 3);
         let mut divided = self.clone();
         let mut quotient = BigUInt::new();
@@ -149,7 +149,7 @@ impl From<u64> for BigUInt {
     }
 }
 
-impl fmt::Display for BigUInt {
+impl fmt::Debug for BigUInt {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "BigUInt({})", self.to_string())
     }
