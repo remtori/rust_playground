@@ -1,3 +1,4 @@
+// FIXME: These test are not really good and not cover all the edge cases
 use super::*;
 
 #[test]
@@ -121,4 +122,56 @@ fn ops_not() {
 
     let n = BigUInt::from(33333333333);
     assert_eq!((!n).to_u64_clamp(), !33333333333);
+}
+
+#[test]
+fn ops_shift_left() {
+    let n = BigUInt::from(1233211) << 5;
+    assert_eq!(n.to_u64_clamp(), 1233211 << 5);
+
+    let n = BigUInt::from(1233211) << 1;
+    assert_eq!(n.to_u64_clamp(), 1233211 << 1);
+
+    let n = BigUInt::from(2) << 14;
+    assert_eq!(n.to_u64_clamp(), 2 << 14);
+
+    let mut n = BigUInt::from(12313137979878979);
+    n <<= 3;
+    assert_eq!(n.to_u64_clamp(), 12313137979878979 << 3);
+
+    let mut n = BigUInt::from(1233211);
+    n <<= 5;
+    assert_eq!(n.to_u64_clamp(), 1233211 << 5);
+
+    let mut n = BigUInt::from(1233211);
+    n <<= 1;
+    assert_eq!(n.to_u64_clamp(), 1233211 << 1);
+
+    let mut n = BigUInt::from(2);
+    n <<= 14;
+    assert_eq!(n.to_u64_clamp(), 2 << 14);
+}
+
+#[test]
+fn ops_shift_right() {
+    let n = BigUInt::from(1233211123213) >> 5;
+    assert_eq!(n.to_u64_clamp(), 1233211123213 >> 5);
+
+    let n = BigUInt::from(1233211998772) >> 1;
+    assert_eq!(n.to_u64_clamp(), 1233211998772 >> 1);
+
+    let n = BigUInt::from(2) >> 14;
+    assert_eq!(n.to_u64_clamp(), 2 >> 14);
+
+    let mut n = BigUInt::from(12313137979878979);
+    n >>= 5;
+    assert_eq!(n.to_u64_clamp(), 12313137979878979 >> 5);
+
+    let mut n = BigUInt::from(777777);
+    n >>= 1;
+    assert_eq!(n.to_u64_clamp(), 777777 >> 1);
+
+    let mut n = BigUInt::from(2);
+    n >>= 14;
+    assert_eq!(n.to_u64_clamp(), 2 >> 14);
 }

@@ -97,3 +97,70 @@ impl ops::Not for BigUInt {
         out
     }
 }
+
+impl ops::Shl<usize> for BigUInt {
+    type Output = BigUInt;
+
+    fn shl(self, amount: usize) -> Self::Output {
+        let mut out = self;
+        ops::ShlAssign::shl_assign(&mut out, amount);
+        out
+    }
+}
+
+impl ops::ShlAssign<usize> for BigUInt {
+    fn shl_assign(&mut self, amount: usize) {
+        self.pad_to(self.bit_count() + amount);
+
+        let shift_chunk = amount / Self::CHUNK_BIT_SIZE;
+        let shift_amount = amount % Self::CHUNK_BIT_SIZE;
+
+        self.chunks.extend(iter::repeat(0).take(shift_chunk));
+
+        let mut remainder = 0;
+        for chunk in self.chunks.iter_mut() {
+            let tmp = *chunk >> (Self::CHUNK_BIT_SIZE - shift_amount);
+            *chunk <<= shift_amount;
+            *chunk |= remainder;
+            remainder = tmp;
+        }
+
+        self.chunks.rotate_left(shift_chunk);
+        self.bit_count += amount;
+    }
+}
+
+impl ops::Shr<usize> for BigUInt {
+    type Output = BigUInt;
+
+    fn shr(self, amount: usize) -> Self::Output {
+        let mut out = self;
+        ops::ShrAssign::shr_assign(&mut out, amount);
+        out
+    }
+}
+
+impl ops::ShrAssign<usize> for BigUInt {
+    fn shr_assign(&mut self, amount: usize) {
+        if amount >= self.bit_count() {
+            self.clear();
+            return;
+        }
+
+        let shift_chunk = amount / Self::CHUNK_BIT_SIZE;
+        let shift_amount = amount % Self::CHUNK_BIT_SIZE;
+
+        self.chunks.rotate_right(shift_chunk);
+        self.chunks.truncate(self.chunks.len() - shift_chunk);
+
+        let mut remainder = 0u32;
+        for chunk in self.chunks.iter_mut().rev() {
+            let tmp = *chunk << (Self::CHUNK_BIT_SIZE - shift_amount);
+            *chunk >>= shift_amount;
+            *chunk |= remainder;
+            remainder = tmp;
+        }
+
+        self.bit_count -= amount;
+    }
+}
