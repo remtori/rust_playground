@@ -1,8 +1,11 @@
+#![feature(assoc_char_funcs)]
+
 use rust_js::{
     ast::{ASTNode, Expression},
     js::Value,
     parser::{lexer::Lexer, token::TokenKind, Parser},
     Context,
+    builtin::BigInt,
 };
 
 fn main() {
@@ -43,20 +46,25 @@ fn main() {
     //     }
     // }
 
-    let mut parser = Parser::new(
-        r#"
-            let a = 4
-            const b = 4, c = 6, d = 7 * 9;
-            var x = (9 - 4) * 2 + 5;
-            var y = a - b * c;
-            x
-            y
-            y + d
-        "#,
-    );
+    // let mut parser = Parser::new(
+    //     r#"
+    //         let a = 4
+    //         const b = 4, c = 6, d = 7 * 9;
+    //         var x = (9 - 4) * 2 + 5;
+    //         var y = a - b * c;
+    //         x
+    //         y
+    //         y + d
+    //     "#,
+    // );
 
-    let mut program = parser.parse_program();
-    for statement in program.statements_mut().iter_mut() {
-        println!("{:?}", statement.eval(&mut context));
-    }
+    // let mut program = parser.parse_program();
+    // for statement in program.statements_mut().iter_mut() {
+    //     println!("{:?}", statement.eval(&mut context));
+    // }
+
+    let bi =  BigInt::from(1234567890123);
+    // let bi =  BigInt::from(5);
+    println!("bit_str={}", bi.to_bit_string());
+    println!("str    ={}", bi.to_string());
 }

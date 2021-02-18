@@ -1,10 +1,14 @@
-#![feature(default_free_fn)]
+#![feature(
+    assoc_char_funcs,
+    default_free_fn
+)]
 
 use std::collections::HashMap;
 
 pub mod ast;
 pub mod js;
 pub mod parser;
+pub mod builtin;
 
 #[macro_use]
 extern crate lazy_static;
