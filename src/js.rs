@@ -27,7 +27,7 @@ impl ast::ASTNode for Value {
     }
 }
 
-impl fmt::Display for Value {
+impl fmt::Debug for Value {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Value::Undefined => write!(f, "Value{{undefined}}"),
@@ -40,12 +40,6 @@ impl fmt::Display for Value {
             Value::BigInt(_) => write!(f, "Value{{bigint}}"),
             Value::Symbol(_) => write!(f, "Value{{symbol}}"),
         }
-    }
-}
-
-impl fmt::Debug for Value {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        std::fmt::Display::fmt(&self, f)
     }
 }
 
@@ -73,7 +67,7 @@ impl Value {
         match self {
             Value::Rational(v) => *v,
             Value::Integer(v) => *v as f64,
-            _ => panic!("Failed to cast {} as f64", self),
+            _ => panic!("Failed to cast {:?} as f64", self),
         }
     }
 
@@ -81,7 +75,7 @@ impl Value {
         match self {
             Value::Rational(v) => *v as i32,
             Value::Integer(v) => *v as i32,
-            _ => panic!("Failed to cast {} as T", self),
+            _ => panic!("Failed to cast {:?} as T", self),
         }
     }
 
@@ -161,7 +155,7 @@ impl Value {
         }
     }
 
-    #[allow(clippy::inherent_to_string_shadow_display)]
+    #[allow(clippy::inherent_to_string)]
     pub fn to_string(&self) -> String {
         match &self {
             Value::Undefined => "undefined".to_owned(),
