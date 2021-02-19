@@ -250,3 +250,20 @@ fn ops_mult_u32() {
     n *= 11132;
     assert_eq!(n.to_u64_clamp(), 789987789 * 11132);
 }
+
+#[test]
+fn from_str_radix() {
+    assert_eq!(BigUInt::from_str_radix("123213213131231", 10).unwrap().to_u64_clamp(), 123213213131231);
+    assert_eq!(
+       BigUInt::from_str_radix("10011101110111111100111111110011100100111", 2).unwrap().to_u64_clamp(),
+       0b10011101110111111100111111110011100100111
+    );
+    assert_eq!(
+        BigUInt::from_str_radix("123af81a8d97e6b", 16).unwrap().to_u64_clamp(),
+        0x123af81a8d97e6b
+    );
+    assert_eq!(
+        BigUInt::from_str_radix("10736523112", 8).unwrap().to_u64_clamp(),
+        0o10736523112
+    );
+}

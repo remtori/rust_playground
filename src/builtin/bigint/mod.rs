@@ -52,6 +52,20 @@ impl BigUInt {
         }
     }
 
+    pub fn from_str_radix(str: &str, radix: u32) -> Option<Self> {
+        if !(2..36).contains(&radix) {
+            return None;
+        }
+
+        let mut out = Self::new();
+        for c in str.chars() {
+            let digit = c.to_digit(radix)?;
+            out = out * radix + digit;
+        }
+
+        Some(out)
+    }
+
     pub fn to_u64_clamp(&self) -> u64 {
         let mut out = 0u64;
 
