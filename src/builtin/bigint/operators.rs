@@ -164,3 +164,39 @@ impl ops::ShrAssign<usize> for BigUInt {
         self.bit_count -= amount;
     }
 }
+
+impl ops::Add<BigUInt> for BigUInt {
+    type Output = BigUInt;
+
+    fn add(self, rhs: BigUInt) -> Self::Output {
+        let (mut out, rhs) = if self.bit_count() > rhs.bit_count() {
+            (self, rhs)
+        } else {
+            (rhs, self)
+        };
+
+        ops::AddAssign::add_assign(&mut out, rhs);
+
+        out
+    }
+}
+
+impl ops::AddAssign<BigUInt> for BigUInt {
+    fn add_assign(&mut self, rhs: BigUInt) {
+        self.pad_to(rhs.bit_count());
+
+        let mut remainder = 0;
+        for (idx, chunk) in self.chunks.iter_mut().enumerate() {
+            let sum = (*chunk as u64) + (rhs.chunk_at(idx) as u64) + remainder;
+            remainder = sum >> Self::CHUNK_BIT_SIZE;
+            *chunk = sum as u32;
+        }
+
+        if remainder > 0 {
+            let remainder = remainder as u32;
+            self.chunks.push(remainder);
+        }
+
+        self.adjust_bit_count();
+    }
+}

@@ -175,3 +175,30 @@ fn ops_shift_right() {
     n >>= 14;
     assert_eq!(n.to_u64_clamp(), 2 >> 14);
 }
+
+#[test]
+fn ops_add() {
+    let a = BigUInt::from(123213213131231);
+    let b = BigUInt::from(56756776529);
+    assert_eq!((a + b).to_u64_clamp(), 123213213131231 + 56756776529);
+
+    let a = BigUInt::from(9999977799);
+    let b = BigUInt::from(1111111111);
+    assert_eq!((a + b).to_u64_clamp(), 9999977799 + 1111111111);
+
+    let a = BigUInt::from(987987987987);
+    let b = BigUInt::from(123123123123123132);
+    assert_eq!((a + b).to_u64_clamp(), 987987987987 + 123123123123123132);
+
+    let mut n = BigUInt::from(999999);
+    n += BigUInt::from(123213123123);
+    assert_eq!(n.to_u64_clamp(), 999999 + 123213123123);
+
+    let mut n = BigUInt::from(999999779);
+    n += BigUInt::from(66658879);
+    assert_eq!(n.to_u64_clamp(), 999999779 + 66658879);
+
+    let mut n = BigUInt::from(789987789);
+    n += BigUInt::from(123213123123);
+    assert_eq!(n.to_u64_clamp(), 789987789 + 123213123123);
+}

@@ -97,6 +97,17 @@ impl BigUInt {
         self.chunks.clear();
     }
 
+    fn adjust_bit_count(&mut self) {
+        for (idx, chunk) in self.chunks.iter().rev().enumerate() {
+            if *chunk > 0 {
+                self.bit_count =
+                    (self.chunks.len() - idx - 1) * Self::CHUNK_BIT_SIZE +
+                    (Self::CHUNK_BIT_SIZE - chunk.leading_zeros() as usize);
+                break;
+            }
+        }
+    }
+
     #[allow(clippy::inherent_to_string)]
     pub fn to_string(&self) -> String {
         let mut out = String::with_capacity(self.bit_count() / 3);
