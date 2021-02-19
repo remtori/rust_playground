@@ -200,3 +200,64 @@ impl ops::AddAssign<BigUInt> for BigUInt {
         self.adjust_bit_count();
     }
 }
+
+impl ops::Add<u32> for BigUInt {
+    type Output = BigUInt;
+
+    fn add(self, rhs: u32) -> Self::Output {
+        let mut out = self;
+        ops::AddAssign::add_assign(&mut out, rhs);
+        out
+    }
+}
+
+impl ops::AddAssign<u32> for BigUInt {
+    fn add_assign(&mut self, rhs: u32) {
+        let mut remainder = rhs as u64;
+        for chunk in self.chunks.iter_mut() {
+            let sum = (*chunk as u64) + remainder;
+            remainder = sum >> Self::CHUNK_BIT_SIZE;
+            *chunk = sum as u32;
+
+            if remainder == 0 {
+                break;
+            }
+        }
+
+        if remainder > 0 {
+            let remainder = remainder as u32;
+            self.chunks.push(remainder);
+        }
+
+        self.adjust_bit_count();
+    }
+}
+
+impl ops::Mul<u32> for BigUInt {
+    type Output = BigUInt;
+
+    fn mul(self, rhs: u32) -> Self::Output {
+        let mut out = self;
+        ops::MulAssign::mul_assign(&mut out, rhs);
+        out
+    }
+}
+
+impl ops::MulAssign<u32> for BigUInt {
+    fn mul_assign(&mut self, rhs: u32) {
+        let rhs = rhs as u64;
+        let mut remainder = 0;
+        for chunk in self.chunks.iter_mut() {
+            let sum = (*chunk as u64) * rhs + remainder;
+            remainder = sum >> Self::CHUNK_BIT_SIZE;
+            *chunk = sum as u32;
+        }
+
+        if remainder > 0 {
+            let remainder = remainder as u32;
+            self.chunks.push(remainder);
+        }
+
+        self.adjust_bit_count();
+    }
+}

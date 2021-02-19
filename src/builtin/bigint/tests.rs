@@ -202,3 +202,51 @@ fn ops_add() {
     n += BigUInt::from(123213123123);
     assert_eq!(n.to_u64_clamp(), 789987789 + 123213123123);
 }
+
+#[test]
+fn ops_add_u32() {
+    let n = BigUInt::from(123213213131231) + 45671;
+    assert_eq!(n.to_u64_clamp(), 123213213131231 + 45671);
+
+    let n = BigUInt::from(9999977799) + 11111;
+    assert_eq!(n.to_u64_clamp(), 9999977799 + 11111);
+
+    let n = BigUInt::from(987987987987) + 123123;
+    assert_eq!(n.to_u64_clamp(), 987987987987 + 123123);
+
+    let mut n = BigUInt::from(999999);
+    n += 123123;
+    assert_eq!(n.to_u64_clamp(), 999999 + 123123);
+
+    let mut n = BigUInt::from(999999779);
+    n += 66658879;
+    assert_eq!(n.to_u64_clamp(), 999999779 + 66658879);
+
+    let mut n = BigUInt::from(789987789);
+    n += 9999999;
+    assert_eq!(n.to_u64_clamp(), 789987789 + 9999999);
+}
+
+#[test]
+fn ops_mult_u32() {
+    let n = BigUInt::from(123213213131231) * 123;
+    assert_eq!(n.to_u64_clamp(), 123213213131231 * 123);
+
+    let n = BigUInt::from(9999977799) * 11111;
+    assert_eq!(n.to_u64_clamp(), 9999977799 * 11111);
+
+    let n = BigUInt::from(987987987987) * 123123;
+    assert_eq!(n.to_u64_clamp(), 987987987987 * 123123);
+
+    let mut n = BigUInt::from(999999);
+    n *= 123123;
+    assert_eq!(n.to_u64_clamp(), 999999 * 123123);
+
+    let mut n = BigUInt::from(999999779);
+    n *= 7788;
+    assert_eq!(n.to_u64_clamp(), 999999779 * 7788);
+
+    let mut n = BigUInt::from(789987789);
+    n *= 11132;
+    assert_eq!(n.to_u64_clamp(), 789987789 * 11132);
+}
