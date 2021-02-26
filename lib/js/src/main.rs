@@ -1,11 +1,10 @@
 #![feature(assoc_char_funcs)]
 
-use rust_js::{
+use js::{
     ast::{ASTNode, Expression},
     js::Value,
     parser::{lexer::Lexer, token::TokenKind, Parser},
-    Context,
-    builtin::BigUInt,
+    Context
 };
 
 fn main() {
@@ -62,9 +61,4 @@ fn main() {
     // for statement in program.statements_mut().iter_mut() {
     //     println!("{:?}", statement.eval(&mut context));
     // }
-
-    let bi =  BigUInt::from(1234567890123);
-    // let bi =  BigInt::from(5);
-    println!("bit_str={}", bi.to_bit_string());
-    println!("str    ={}", bi);
 }

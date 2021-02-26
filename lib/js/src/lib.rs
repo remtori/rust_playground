@@ -8,7 +8,6 @@ use std::collections::HashMap;
 pub mod ast;
 pub mod js;
 pub mod parser;
-pub mod builtin;
 
 #[macro_use]
 extern crate lazy_static;

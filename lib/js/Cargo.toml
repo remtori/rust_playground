@@ -1,0 +1,23 @@
+[package]
+name = "js"
+version = "0.1.0"
+authors = ["remtori <lqvu99@gmail.com>"]
+edition = "2018"
+license = "MIT"
+
+[lib]
+crate-type = ["rlib"]
+
+[[bin]]
+name = "js"
+path = "src/main.rs"
+
+[dependencies]
+lazy_static = "1.4.0"
+
+[features]
+
+defaults = []
+
+debug_all = [ "debug_lexer" ]
+debug_lexer = []
