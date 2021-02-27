@@ -1,0 +1,11 @@
+[package]
+name = "gui"
+version = "0.1.0"
+authors = ["remtori <lqvu99@gmail.com>"]
+edition = "2018"
+license = "MIT"
+
+[dependencies]
+pixels = "0.2.0"
+winit = "0.24"
+winit_input_helper = "0.9"
