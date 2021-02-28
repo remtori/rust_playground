@@ -2,7 +2,7 @@
 
 use js::{
     ast::{ASTNode, Expression},
-    value::Value,
+    runtime::Value,
     parser::{lexer::Lexer, token::TokenKind, Parser},
     Context
 };
@@ -15,7 +15,12 @@ fn main() {
             var a = 5;
             a
             a = 4;
-            a
+            a += 5
+            a -= 2
+            a *= 3
+            a /= 2
+            a ^= 1
+            a %= 2
         "#,
     );
 

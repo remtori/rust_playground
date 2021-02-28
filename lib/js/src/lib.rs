@@ -6,7 +6,7 @@
 use std::collections::HashMap;
 
 pub mod ast;
-pub mod value;
+pub mod runtime;
 pub mod parser;
 
 #[macro_use]
@@ -14,7 +14,7 @@ extern crate lazy_static;
 
 #[derive(Debug, Default)]
 pub struct Context {
-    variables: HashMap<String, value::Value>,
+    variables: HashMap<String, runtime::Value>,
 }
 
 impl Context {
@@ -24,11 +24,11 @@ impl Context {
         }
     }
 
-    pub fn get_variable(&self, name: &str) -> Option<value::Value> {
+    pub fn get_variable(&self, name: &str) -> Option<runtime::Value> {
         self.variables.get(name).map(Clone::clone)
     }
 
-    pub fn set_variable(&mut self, name: String, value: value::Value) {
+    pub fn set_variable(&mut self, name: String, value: runtime::Value) {
         self.variables.insert(name, value);
     }
 }
