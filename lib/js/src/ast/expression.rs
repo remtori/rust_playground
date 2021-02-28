@@ -92,6 +92,8 @@ pub enum BitwiseOp {
 
 #[derive(Debug, PartialEq)]
 pub enum AssignmentOp {
+    Assignment,
+
     AdditionAssignment,
     SubtractionAssignment,
     MultiplicationAssignment,
@@ -181,16 +183,7 @@ impl BinaryOperation {
 }
 
 impl BinaryOperation {
-    fn do_numeric_op(&mut self, context: &mut Context) -> Value {
-        let op = if let BinaryOp::NumericOp(op) = &self.op {
-           op
-        } else {
-            panic!("Called do_numeric_op on non-numeric operation");
-        };
-
-        let left_value = self.lhs.eval(context).to_numeric();
-        let right_value = self.rhs.eval(context).to_numeric();
-
+    fn do_numeric_op(&self, op: &NumericOp, left_value: Value, right_value: Value) -> Value {
         if let Value::Integer(left) = left_value {
             if let Value::Integer(right) = right_value {
                 return match op {
@@ -250,41 +243,73 @@ impl BinaryOperation {
         todo!()
     }
 
-    fn do_bitwise_op(&mut self, context: &mut Context) -> Value {
-        if let BinaryOp::BitwiseOp(op) = &self.op {
-            let left_value = self.lhs.eval(context);
-            let right_value = self.rhs.eval(context);
-            let left = left_value.to_i32();
-            let right = right_value.to_i32();
+    fn do_bitwise_op(&self, op: &BitwiseOp, lhs: Value, rhs: Value) -> Value {
+        let left = lhs.to_i32();
+        let right = rhs.to_i32();
 
-            return match op {
-                BitwiseOp::Or => Value::Integer(left | right),
-                BitwiseOp::And => Value::Integer(left & right),
-                BitwiseOp::Xor => Value::Integer(left ^ right),
-                BitwiseOp::ShiftLeft => Value::Integer(left << (right % 32)),
-                BitwiseOp::ShiftRight => Value::Integer(left >> (right % 32)),
-                BitwiseOp::UnsignedShiftRight => Value::Integer(
-                    (left_value.to_u32() >> (right_value.to_u32() % 32)) as i32
-                ),
-            }
+        match op {
+            BitwiseOp::Or => Value::Integer(left | right),
+            BitwiseOp::And => Value::Integer(left & right),
+            BitwiseOp::Xor => Value::Integer(left ^ right),
+            BitwiseOp::ShiftLeft => Value::Integer(left << (right % 32)),
+            BitwiseOp::ShiftRight => Value::Integer(left >> (right % 32)),
+            BitwiseOp::UnsignedShiftRight => Value::Integer(
+                (lhs.to_u32() >> (rhs.to_u32() % 32)) as i32
+            ),
         }
-
-        unreachable!()
     }
 
     fn do_assignment_op(&mut self, context: &mut Context) -> Value {
-        todo!()
+        let op = if let BinaryOp::AssignmentOp(op) = &self.op {
+            op
+        } else {
+            panic!("Called do_assignment_op on non-assignment operation");
+        };
+
+        let left_value = self.lhs.eval(context);
+        let right_value = self.rhs.eval(context);
+        if let Expression::Identifier(ident) = self.lhs.as_ref() {
+            let value = match op {
+                AssignmentOp::Assignment => right_value,
+                AssignmentOp::AdditionAssignment => self.do_numeric_op(&NumericOp::Addition, left_value, right_value),
+                AssignmentOp::SubtractionAssignment => self.do_numeric_op(&NumericOp::Subtraction, left_value, right_value),
+                AssignmentOp::MultiplicationAssignment => self.do_numeric_op(&NumericOp::Multiplication, left_value, right_value),
+                AssignmentOp::DivisionAssignment => self.do_numeric_op(&NumericOp::Division, left_value, right_value),
+                AssignmentOp::ModuloAssignment => self.do_numeric_op(&NumericOp::Modulo, left_value, right_value),
+                AssignmentOp::ExponentAssignment => self.do_numeric_op(&NumericOp::Exponent, left_value, right_value),
+                AssignmentOp::BitAndAssignment => self.do_bitwise_op(&BitwiseOp::And, left_value, right_value),
+                AssignmentOp::BitOrAssignment => self.do_bitwise_op(&BitwiseOp::Or, left_value, right_value),
+                AssignmentOp::BitXorAssignment => self.do_bitwise_op(&BitwiseOp::Xor, left_value, right_value),
+                AssignmentOp::ShiftLeftAssignment => self.do_bitwise_op(&BitwiseOp::ShiftLeft, left_value, right_value),
+                AssignmentOp::ShiftRightAssignment => self.do_bitwise_op(&BitwiseOp::ShiftRight, left_value, right_value),
+                AssignmentOp::UnsignedShiftRightAssignment => self.do_bitwise_op(&BitwiseOp::UnsignedShiftRight, left_value, right_value),
+                AssignmentOp::BoolAndAssignment => Value::Boolean(left_value.to_boolean() && right_value.to_boolean()),
+                AssignmentOp::BoolOrAssignment => Value::Boolean(left_value.to_boolean() || right_value.to_boolean()),
+            };
+
+            context.set_variable(ident.name().clone(), value.clone());
+            value
+        } else {
+            unreachable!()
+        }
     }
 }
 
 impl ASTNode for BinaryOperation {
     fn eval(&mut self, context: &mut Context) -> Value {
-        match self.op {
-            BinaryOp::NumericOp(_) => self.do_numeric_op(context),
+        match &self.op {
+            BinaryOp::NumericOp(op) => {
+                let left_value = self.lhs.eval(context).to_numeric();
+                let right_value = self.rhs.eval(context).to_numeric();
+                self.do_numeric_op(&op, left_value, right_value)
+            },
+            BinaryOp::BitwiseOp(op) => {
+                let left_value = self.lhs.eval(context).to_numeric();
+                let right_value = self.rhs.eval(context).to_numeric();
+                self.do_bitwise_op(op, left_value, right_value)
+            },
             BinaryOp::CompareOp(_) => self.do_compare_op(context),
-            BinaryOp::BitwiseOp(_) => self.do_bitwise_op(context),
             BinaryOp::AssignmentOp(_) => self.do_assignment_op(context),
-
             BinaryOp::BoolAnd => {
                 let left_value = self.lhs.eval(context);
                 if left_value.to_boolean() {

@@ -263,6 +263,9 @@ impl<'s> Parser<'s> {
             TokenKind::DoublePipeEquals => {
                 self.parse_assignment_expression(AssignmentOp::BoolOrAssignment, lhs, min_precedence, associativity)
             }
+            TokenKind::Equals => {
+                self.parse_assignment_expression(AssignmentOp::Assignment, lhs, min_precedence, associativity)
+            }
             _ => unreachable!(),
         }
     }
@@ -456,7 +459,7 @@ impl<'s> Parser<'s> {
     fn consume(&mut self) -> Token<'s> {
         let old_token = self.current_token;
         self.current_token = self.lexer.next_token();
-        println!("consumed: {:?}\n => next: {:?}", old_token, self.current_token);
+        println!("consumed: {:?}", old_token);
         old_token
     }
 }
