@@ -73,6 +73,12 @@ impl<'s> From<&'s [u8]> for CaseInsensitiveAsciiByte<'s> {
     }
 }
 
+impl<'s> From<&'s str> for CaseInsensitiveAsciiByte<'s> {
+    fn from(s: &'s str) -> Self {
+        CaseInsensitiveAsciiByte(s.as_bytes())
+    }
+}
+
 // impl From<&'static [u8]> for CaseInsensitiveAsciiByte<'static> {
 //     fn from(s: &'static [u8]) -> Self {
 //         CaseInsensitiveAsciiByte(s)
@@ -119,10 +125,10 @@ mod tests {
         map.insert(b"a".as_ref().into(), 1);
         assert_eq!(*map.get(&b"a".as_ref().into()).unwrap(), 1);
 
-        map.insert(b"aaa".as_ref().into(), 2);
-        assert_eq!(*map.get(&b"AAA".as_ref().into()).unwrap(), 2);
+        map.insert("aaa".into(), 2);
+        assert_eq!(*map.get(&"AAA".into()).unwrap(), 2);
 
-        map.insert(b"aaB".as_ref().into(), 3);
-        assert_eq!(*map.get(&b"AAb".as_ref().into()).unwrap(), 3);
+        map.insert("aaB".into(), 3);
+        assert_eq!(*map.get(&"AAb".into()).unwrap(), 3);
     }
 }
