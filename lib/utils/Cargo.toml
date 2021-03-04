@@ -4,3 +4,10 @@ version = "0.1.0"
 authors = ["remtori <lqvu99@gmail.com>"]
 edition = "2018"
 license = "MIT"
+
+[dependencies]
+# Use fern, for now, gonna write my own logger later
+log = "0.4"
+fern = { version = "0.5", features = [ "colored" ] }
+# Date & time lib
+chrono = "0.4"
