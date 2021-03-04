@@ -1,6 +1,6 @@
-use crate::threadguard::{create_thread_guard, ThreadPoker};
+use crate::prelude::*;
 use std::sync::{mpsc, Arc, Mutex};
-use std::thread;
+use std::*;
 
 pub struct ThreadPool {
     uid: usize,
@@ -9,7 +9,7 @@ pub struct ThreadPool {
     receiver: Arc<Mutex<mpsc::Receiver<Message>>>,
 }
 
-type Job = Box<dyn FnOnce() + Send + 'static>;
+type Job = Box<dyn FnOnce() + panic::UnwindSafe + Send + 'static>;
 
 enum Message {
     NewJob(Job),
@@ -46,9 +46,9 @@ impl ThreadPool {
 
         for worker in self.workers.iter_mut() {
             if !worker.is_alive() {
-                println!("[Threadpool] Worker {} died!", worker.id());
+                info!("Worker {} died!", worker.id());
                 if let Some(thread) = worker.thread.take() {
-                    thread.join();
+                    let _ = thread.join();
                 }
             }
         }
@@ -67,7 +67,7 @@ impl ThreadPool {
 
     pub fn execute<F>(&self, f: F)
     where
-        F: FnOnce() + Send + 'static,
+        F: FnOnce() + panic::UnwindSafe + Send + 'static,
     {
         let job = Box::new(f);
         self.sender.send(Message::NewJob(job)).unwrap();
@@ -82,7 +82,7 @@ impl Drop for ThreadPool {
 
         for worker in &mut self.workers {
             if let Some(thread) = worker.thread.take() {
-                thread.join();
+                let _ = thread.join();
             }
         }
     }
@@ -106,7 +106,8 @@ impl Worker {
 
                 match message {
                     Message::NewJob(job) => {
-                        job();
+                        // We do not really care if the job panicked, its still consider it done
+                        let _ = std::panic::catch_unwind(job);
                     }
                     Message::Terminate => {
                         break;
@@ -115,7 +116,7 @@ impl Worker {
             })
             .unwrap();
 
-        println!("[Threadpool] Worker {} spawned!", id);
+        info!("Worker {} spawned!", id);
 
         Worker {
             id,
