@@ -116,8 +116,6 @@ impl Worker {
             })
             .unwrap();
 
-        info!("Worker {} spawned!", id);
-
         Worker {
             id,
             thread: Some(thread),
