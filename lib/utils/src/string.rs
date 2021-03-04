@@ -50,6 +50,35 @@ impl From<&str> for CaseInsensitiveString {
     }
 }
 
+#[derive(Debug, Eq, Ord, PartialOrd)]
+pub struct CaseInsensitiveAsciiByte<'s>(&'s [u8]);
+
+impl<'s> std::cmp::PartialEq for CaseInsensitiveAsciiByte<'s> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0.eq_ignore_ascii_case(&other.0)
+    }
+}
+
+impl<'s> std::hash::Hash for CaseInsensitiveAsciiByte<'s> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        for b in self.0 {
+            state.write_u8(b.to_ascii_lowercase())
+        }
+    }
+}
+
+impl<'s> From<&'s [u8]> for CaseInsensitiveAsciiByte<'s> {
+    fn from(s: &'s [u8]) -> Self {
+        CaseInsensitiveAsciiByte(s)
+    }
+}
+
+// impl From<&'static [u8]> for CaseInsensitiveAsciiByte<'static> {
+//     fn from(s: &'static [u8]) -> Self {
+//         CaseInsensitiveAsciiByte(s)
+//     }
+// }
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -81,5 +110,19 @@ mod tests {
 
         map.insert("aaB".into(), 3);
         assert_eq!(*map.get(&"AAb".into()).unwrap(), 3);
+    }
+
+    #[test]
+    fn test_case_insensitive_ascii_byte() {
+        let mut map: HashMap<CaseInsensitiveAsciiByte<'static>, u8> = HashMap::new();
+
+        map.insert(b"a".as_ref().into(), 1);
+        assert_eq!(*map.get(&b"a".as_ref().into()).unwrap(), 1);
+
+        map.insert(b"aaa".as_ref().into(), 2);
+        assert_eq!(*map.get(&b"AAA".as_ref().into()).unwrap(), 2);
+
+        map.insert(b"aaB".as_ref().into(), 3);
+        assert_eq!(*map.get(&b"AAb".as_ref().into()).unwrap(), 3);
     }
 }
