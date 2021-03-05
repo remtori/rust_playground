@@ -1,2 +1,9 @@
 [workspace]
 members = [ "lib/*" ]
+
+# Threadpool rely on unwind to protect its worker
+[profile.dev]
+panic = "unwind"
+
+[profile.release]
+panic = "unwind"

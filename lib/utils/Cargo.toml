@@ -11,10 +11,3 @@ log = "0.4"
 fern = { version = "0.5", features = [ "colored" ] }
 # Date & time lib
 chrono = "0.4"
-
-# Threadpool rely on unwind to protect its worker
-[profile.dev]
-panic = "unwind"
-
-[profile.release]
-panic = "unwind"
