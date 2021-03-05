@@ -38,6 +38,7 @@ pub struct Header<'b> {
 pub enum ParseError {
     PartialData,
     ParseUtf8Err,
+    ParseStatusCode,
     InvalidUri,
     InvalidVersion,
     InvalidHeaderField,
@@ -96,6 +97,75 @@ impl<'buf, 'h> HttpRequest<'buf, 'h> {
         }
 
         self.version = parse_version(&mut bytes, true)?;
+
+        // Nom \r\n
+        if let Some(ok) = bytes.consume_str(b"\r\n") {
+            if !ok {
+                return Err(ParseError::InvalidHeaderField);
+            }
+        } else {
+            return Err(ParseError::PartialData);
+        }
+
+        self.header_count = parse_headers(&mut bytes, &mut self.headers)?;
+
+        Ok(bytes.offset())
+    }
+}
+
+#[derive(Debug)]
+pub struct HttpResponse<'buf, 'h> {
+    version: Version,
+    code: u16,
+    status: &'buf str,
+    headers: &'h mut [Header<'buf>],
+    header_count: usize,
+}
+
+impl<'buf, 'h> HttpResponse<'buf, 'h> {
+    pub fn new(headers: &'h mut [Header<'buf>]) -> HttpResponse<'buf, 'h> {
+        HttpResponse {
+            version: Version::Unknown,
+            code: 0,
+            status: "",
+            headers,
+            header_count: 0,
+        }
+    }
+
+    pub fn parse(&mut self, buffer: &'buf [u8]) -> Result<usize> {
+        let mut bytes = Bytes::from(buffer);
+
+        self.version = parse_version(&mut bytes, false)?;
+
+        // Nom whitespace
+        if !bytes.consume(b' ').ok_or(ParseError::PartialData)? {
+            return Err(ParseError::InvalidUri);
+        }
+
+        let code = bytes.consume_until(b' ').ok_or(ParseError::PartialData)?;
+        if let Ok(code) = str::from_utf8(code) {
+            self.code = if let Ok(v) = str::parse::<u16>(code) {
+                v
+            } else {
+                return Err(ParseError::ParseStatusCode);
+            };
+        } else {
+            return Err(ParseError::ParseUtf8Err);
+        }
+
+        // Nom whitespace
+        if !bytes.consume(b' ').ok_or(ParseError::PartialData)? {
+            return Err(ParseError::InvalidUri);
+        }
+
+        if let Some(status) = bytes.consume_until(b'\r') {
+            self.status = if let Ok(s) = str::from_utf8(status) {
+                s
+            } else {
+                return Err(ParseError::ParseUtf8Err);
+            }
+        }
 
         // Nom \r\n
         if let Some(ok) = bytes.consume_str(b"\r\n") {
@@ -211,16 +281,4 @@ fn parse_headers<'a, 'buf>(
     }
 
     Ok(header_count)
-}
-
-#[derive(Debug)]
-pub struct HttpResponse<'buf, 'h> {
-    version: Version,
-    status: u16,
-    status_description: &'buf str,
-    headers: &'h [Header<'buf>],
-}
-
-impl<'buf, 'h> HttpResponse<'buf, 'h> {
-    // fn parse(buffer: &'buf [u8], headers: &'h [Header<'buf>]) -> Result<HttpResponse<'buf, 'h>> {}
 }
