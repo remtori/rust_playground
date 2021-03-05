@@ -111,6 +111,16 @@ impl<'buf, 'h> HttpRequest<'buf, 'h> {
 
         Ok(bytes.offset())
     }
+
+    pub fn header(&self, field: &str) -> Option<&'buf [u8]> {
+        for i in 0..self.header_count {
+            if self.headers[i].field.eq_ignore_ascii_case(field) {
+                return Some(self.headers[i].value);
+            }
+        }
+
+        None
+    }
 }
 
 #[derive(Debug)]
@@ -179,6 +189,16 @@ impl<'buf, 'h> HttpResponse<'buf, 'h> {
         self.header_count = parse_headers(&mut bytes, &mut self.headers)?;
 
         Ok(bytes.offset())
+    }
+
+    pub fn header(&self, field: &str) -> Option<&'buf [u8]> {
+        for i in 0..self.header_count {
+            if self.headers[i].field.eq_ignore_ascii_case(field) {
+                return Some(self.headers[i].value);
+            }
+        }
+
+        None
     }
 }
 
