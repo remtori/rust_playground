@@ -1,3 +1,4 @@
+pub mod bytes;
 pub mod prelude;
 pub mod string;
 pub mod threadguard;
