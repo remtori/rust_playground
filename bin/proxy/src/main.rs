@@ -1,4 +1,4 @@
-use http::http::{HttpRequest, HttpResponse, EMPTY_HEADER};
+use http::parse::*;
 use std::io::prelude::*;
 use std::net::{Ipv4Addr, TcpListener, TcpStream};
 use std::*;
@@ -40,7 +40,7 @@ fn main() {
 #[derive(Debug)]
 pub enum Error {
     IO(std::io::Error),
-    HttpParse(http::http::ParseError),
+    HttpParse(ParseError),
     Utf8Error(std::str::Utf8Error),
     Timeout,
     Eof,
@@ -52,8 +52,8 @@ impl From<std::io::Error> for Error {
     }
 }
 
-impl From<http::http::ParseError> for Error {
-    fn from(e: http::http::ParseError) -> Self {
+impl From<ParseError> for Error {
+    fn from(e: ParseError) -> Self {
         Self::HttpParse(e)
     }
 }

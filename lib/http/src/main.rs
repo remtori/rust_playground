@@ -1,4 +1,4 @@
-use http::http::{HttpRequest, HttpResponse, EMPTY_HEADER};
+use http::parse::{HttpRequest, HttpResponse, EMPTY_HEADER};
 
 use std::{env, marker::PhantomData};
 use std::{fs, net::Ipv4Addr};
