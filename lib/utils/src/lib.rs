@@ -33,3 +33,11 @@ pub fn init_logger() -> Result<(), fern::InitError> {
 
     Ok(())
 }
+
+pub fn ascii_parse<T: std::str::FromStr>(bytes: &[u8]) -> Option<T> {
+    if let Ok(Ok(value)) = std::str::from_utf8(bytes).map(|s| s.parse::<T>()) {
+        Some(value)
+    } else {
+        None
+    }
+}
