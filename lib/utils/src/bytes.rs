@@ -1,9 +1,9 @@
-pub struct Bytes<'b> {
+pub struct BytesRef<'b> {
     buffer: &'b [u8],
     offset: usize,
 }
 
-impl<'b> Bytes<'b> {
+impl<'b> BytesRef<'b> {
     pub fn peek(&self) -> Option<u8> {
         if self.offset < self.buffer.len() {
             Some(self.buffer[self.offset])
@@ -72,8 +72,8 @@ impl<'b> Bytes<'b> {
     }
 }
 
-impl<'b> From<&'b [u8]> for Bytes<'b> {
+impl<'b> From<&'b [u8]> for BytesRef<'b> {
     fn from(buffer: &'b [u8]) -> Self {
-        Bytes { buffer, offset: 0 }
+        BytesRef { buffer, offset: 0 }
     }
 }
