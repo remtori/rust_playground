@@ -27,85 +27,89 @@ fn main() {
         let stream = stream.unwrap();
 
         pool.execute(|| {
-            let _ = handle_connection(stream);
+            if let Err(err) = handle_connection(stream) {
+                warn!("{:?}", err);
+            }
         });
     }
 
     println!("Shutting down.");
 }
 
-fn handle_connection(mut host: TcpStream) -> Result<(), std::io::Error> {
+#[allow(clippy::upper_case_acronyms)]
+#[derive(Debug)]
+pub enum Error {
+    IO(std::io::Error),
+    HttpParse(http::http::ParseError),
+    Utf8Error(std::str::Utf8Error),
+    Timeout,
+    Eof,
+}
+
+impl From<std::io::Error> for Error {
+    fn from(e: std::io::Error) -> Self {
+        Self::IO(e)
+    }
+}
+
+impl From<http::http::ParseError> for Error {
+    fn from(e: http::http::ParseError) -> Self {
+        Self::HttpParse(e)
+    }
+}
+
+impl From<std::str::Utf8Error> for Error {
+    fn from(e: std::str::Utf8Error) -> Self {
+        Self::Utf8Error(e)
+    }
+}
+
+fn handle_connection(mut host: TcpStream) -> Result<(), Error> {
     // TODO: Make this thread local to avoid re-allocation
     let mut _backing_vec1: Vec<u8> = vec![0; 8096];
     let mut _backing_vec2: Vec<u8> = vec![0; 8096];
     let mut req_headers = [EMPTY_HEADER; 32];
     let mut res_headers = [EMPTY_HEADER; 32];
 
-    let mut remote = None;
-
-    // loop {
-    let mut req_buffer = _backing_vec1.as_mut_slice();
-    let mut res_buffer = _backing_vec2.as_mut_slice();
+    let req_buffer = _backing_vec1.as_mut_slice();
+    let res_buffer = _backing_vec2.as_mut_slice();
 
     let mut request = HttpRequest::new(&mut req_headers);
     let mut response = HttpResponse::new(&mut res_headers);
 
-    let read_size = host.read(&mut req_buffer)?;
-    let req_size = match request.parse(req_buffer) {
-        Ok(v) => v,
-        Err(e) => {
-            info!("{:?}", e);
-            return Ok(());
-        }
-    };
-    info!("Req:\n{}", str::from_utf8(&req_buffer[..req_size]).unwrap());
+    let _read_size = host.read(req_buffer)?;
+    let req_header_size = request.parse(req_buffer)?;
 
-    let req_body_size = {
-        if let Some(s) = request.header("content-length") {
-            if let Ok(Ok(size)) = str::from_utf8(s).map(|s| s.parse::<usize>()) {
-                size
-            } else {
-                0
-            }
-        } else {
-            0
-        }
+    info!("Req:\n{}", str::from_utf8(&req_buffer[..req_header_size])?);
+
+    let req_body_size = *request
+        .header("content-length")
+        .and_then(utils::ascii_parse::<usize>)
+        .get_or_insert(0);
+
+    let remote_host = str::from_utf8(request.header("host").unwrap())?;
+    let mut remote = if remote_host.contains(':') {
+        TcpStream::connect(remote_host)?
+    } else {
+        TcpStream::connect((remote_host, 80))?
     };
 
-    let mut remote = remote.get_or_insert_with(|| {
-        let remote_host = str::from_utf8(request.header("host").unwrap()).unwrap();
-        if remote_host.contains(':') {
-            TcpStream::connect(remote_host).unwrap()
-        } else {
-            TcpStream::connect((remote_host, 80)).unwrap()
-        }
-    });
-    remote.write_all(&req_buffer[..req_size + req_body_size])?;
+    remote.write_all(&req_buffer[..req_header_size + req_body_size])?;
 
-    let read_size = remote.read(&mut res_buffer)?;
-    let res_size = match response.parse(res_buffer) {
-        Ok(v) => v,
-        Err(e) => {
-            info!("{:?}", e);
-            return Ok(());
-        }
-    };
-    info!("Res:\n{}", str::from_utf8(&res_buffer[..res_size]).unwrap());
+    let _read_size = remote.read(res_buffer)?;
+    let res_header_size = response.parse(res_buffer)?;
 
-    let res_body_size = {
-        if let Some(s) = response.header("content-length") {
-            if let Ok(Ok(size)) = str::from_utf8(s).map(|s| s.parse::<usize>()) {
-                size
-            } else {
-                0
-            }
-        } else {
-            0
-        }
-    };
+    info!(
+        "Res:\n{}",
+        str::from_utf8(&res_buffer[..res_header_size]).unwrap()
+    );
 
-    host.write_all(&res_buffer[..res_size + res_body_size])?;
-    // }
+    let res_body_size = *response
+        .header("content-length")
+        .and_then(utils::ascii_parse::<usize>)
+        .get_or_insert(0);
+
+    host.write_all(&res_buffer[..res_header_size + res_body_size])?;
 
     Ok(())
 }
