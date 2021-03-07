@@ -1,3 +1,6 @@
+use std::slice::SliceIndex;
+use std::*;
+
 pub struct BytesRef<'b> {
     buffer: &'b [u8],
     offset: usize,
@@ -75,5 +78,13 @@ impl<'b> BytesRef<'b> {
 impl<'b> From<&'b [u8]> for BytesRef<'b> {
     fn from(buffer: &'b [u8]) -> Self {
         BytesRef { buffer, offset: 0 }
+    }
+}
+
+impl<'b, I: SliceIndex<[u8]>> ops::Index<I> for BytesRef<'b> {
+    type Output = I::Output;
+
+    fn index(&self, index: I) -> &Self::Output {
+        ops::Index::index(&*self.buffer, index)
     }
 }
