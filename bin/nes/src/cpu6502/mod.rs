@@ -3,6 +3,7 @@ pub mod disassemble;
 pub mod instruction;
 pub mod lookup;
 
+use crate::*;
 use lookup::{lookup_instruction, InsnFunc};
 
 pub enum Flags {
@@ -125,8 +126,6 @@ impl Cpu6502 {
         self.set_flag(Flags::N, value & 0x80 > 0);
     }
 }
-
-type Bus<'a> = &'a mut dyn crate::Bus;
 
 impl crate::Device for Cpu6502 {
     fn tick(&mut self, bus: Bus) {

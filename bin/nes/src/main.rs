@@ -53,15 +53,11 @@ impl App {
     pub fn new(ctx: &mut Context) -> GameResult<App> {
         let font = Font::new(ctx, "/CascadiaMono.ttf")?;
         let mut emulator = {
-            let mut nes = Emulator::new();
-            let mut offset = 0x8000;
-            for val in PROGRAM.iter() {
-                nes.ram[offset] = *val;
-                offset += 1;
-            }
+            let mut nes = Emulator::default();
+            nes.write_ram(0x8000, &PROGRAM);
 
-            nes.ram[(Cpu6502::DEFAULT_PC + 0) as usize] = 0x00;
-            nes.ram[(Cpu6502::DEFAULT_PC + 1) as usize] = 0x80;
+            nes.write_ram(Cpu6502::DEFAULT_PC + 0, &[0x00]);
+            nes.write_ram(Cpu6502::DEFAULT_PC + 1, &[0x80]);
             nes.reset();
             nes
         };

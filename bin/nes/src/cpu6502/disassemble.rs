@@ -1,8 +1,6 @@
 use super::*;
 use std::{collections::HashMap, ops::Range};
 
-type Bus<'a> = &'a mut dyn crate::Bus;
-
 impl Cpu6502 {
     pub fn disassemble(&mut self, bus: Bus, addr_range: Range<u16>) -> HashMap<u16, String> {
         let mut out = HashMap::new();

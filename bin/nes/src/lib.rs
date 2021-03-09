@@ -3,11 +3,8 @@
 pub mod cpu6502;
 pub mod emulator;
 
-pub trait Bus {
-    fn read(&self, addr: u16, readonly: bool) -> u8;
-    fn write(&mut self, addr: u16, data: u8);
-}
+pub type Bus<'a> = &'a mut crate::emulator::SystemBus;
 
 pub trait Device {
-    fn tick(&mut self, bus: &mut dyn Bus);
+    fn tick(&mut self, bus: &mut crate::emulator::SystemBus);
 }

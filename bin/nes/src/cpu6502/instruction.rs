@@ -1,7 +1,5 @@
 use super::*;
 
-type Bus<'a> = &'a mut dyn crate::Bus;
-
 impl Cpu6502 {
     /// utility function to fetch data
     fn fetch(&mut self, bus: Bus) -> u8 {
@@ -13,7 +11,7 @@ impl Cpu6502 {
 
     /// Invalid/Illegal instruction, behave identical to a NOP
     pub fn xxx(&mut self, _: Bus) -> u8 {
-        0
+        unreachable!()
     }
 
     /// NOP

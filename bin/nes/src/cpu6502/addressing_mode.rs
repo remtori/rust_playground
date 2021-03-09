@@ -1,4 +1,4 @@
-type Bus<'a> = &'a mut dyn crate::Bus;
+use super::*;
 
 impl super::Cpu6502 {
     /// Relative addressing mode, only used by branch instruction
