@@ -1,4 +1,5 @@
 use super::*;
+use utils::prelude::*;
 
 impl Cpu6502 {
     /// utility function to fetch data
@@ -11,7 +12,8 @@ impl Cpu6502 {
 
     /// Invalid/Illegal instruction, behave identical to a NOP
     pub fn xxx(&mut self, _: Bus) -> u8 {
-        unreachable!()
+        warn!("Invalid instruction!");
+        0
     }
 
     /// NOP
@@ -59,30 +61,6 @@ impl Cpu6502 {
 
         // Save the result
         self.a = (temp & 0x00FF) as u8;
-        1
-    }
-
-    /// Return from Interupt
-    pub fn rti(&mut self, bus: Bus) -> u8 {
-        self.stkp += 1;
-        self.status = bus.read(Self::BASE_STACK_PTR + self.stkp as u16, false);
-        self.set_flag(Flags::B, false);
-        self.set_flag(Flags::U, false);
-
-        self.stkp += 1;
-        let lo = bus.read(Self::BASE_STACK_PTR + self.stkp as u16, false) as u16;
-        self.stkp += 1;
-        let hi = bus.read(Self::BASE_STACK_PTR + self.stkp as u16, false) as u16;
-
-        self.pc = (hi << 8) | lo;
-        0
-    }
-
-    /// Bitwise AND operator
-    pub fn and(&mut self, bus: Bus) -> u8 {
-        self.fetch(bus);
-        self.a &= self.fetched;
-        self.set_zero_negative_flag(self.a);
         1
     }
 
@@ -214,20 +192,14 @@ impl Cpu6502 {
         0
     }
 
-    /// Clear Carry Bit
-    pub fn clc(&mut self, _: Bus) -> u8 {
-        self.set_flag(Flags::C, false);
-        0
-    }
+    /// Bit Test
+    pub fn bit(&mut self, bus: Bus) -> u8 {
+        self.fetch(bus);
+        let temp = self.fetched & self.a;
 
-    /// Clear Decimal Bit
-    pub fn cld(&mut self, _: Bus) -> u8 {
-        self.set_flag(Flags::D, false);
+        self.set_zero_negative_flag(temp);
+        self.set_flag(Flags::V, 0x40 & temp > 0);
         0
-    }
-
-    pub fn bit(&mut self, _bus: Bus) -> u8 {
-        todo!()
     }
 
     /// Force Interrupt
@@ -279,69 +251,133 @@ impl Cpu6502 {
         0
     }
 
+    /// Clear Carry Bit
+    pub fn clc(&mut self, _: Bus) -> u8 {
+        self.set_flag(Flags::C, false);
+        0
+    }
+
+    /// Clear Decimal Bit
+    pub fn cld(&mut self, _: Bus) -> u8 {
+        self.set_flag(Flags::D, false);
+        0
+    }
+
+    /// Clear Interupt Disable Bit
     pub fn cli(&mut self, _bus: Bus) -> u8 {
-        todo!()
+        self.set_flag(Flags::I, false);
+        0
     }
 
+    /// Clear Overflow Bit
     pub fn clv(&mut self, _bus: Bus) -> u8 {
-        todo!()
+        self.set_flag(Flags::V, false);
+        0
     }
 
-    pub fn cmp(&mut self, _bus: Bus) -> u8 {
-        todo!()
+    /// Compare
+    pub fn cmp(&mut self, bus: Bus) -> u8 {
+        self.fetch(bus);
+        let temp = self.a as i8 - self.fetched as i8;
+        self.set_flag(Flags::C, temp >= 0);
+        self.set_zero_negative_flag(temp as u8);
+        1
     }
 
-    pub fn cpx(&mut self, _bus: Bus) -> u8 {
-        todo!()
+    /// Compare X Register
+    pub fn cpx(&mut self, bus: Bus) -> u8 {
+        self.fetch(bus);
+        let temp = self.x as i8 - self.fetched as i8;
+        self.set_flag(Flags::C, temp >= 0);
+        self.set_zero_negative_flag(temp as u8);
+        0
     }
 
-    pub fn cpy(&mut self, _bus: Bus) -> u8 {
-        todo!()
+    /// Compare Y Register
+    pub fn cpy(&mut self, bus: Bus) -> u8 {
+        self.fetch(bus);
+        let temp = self.y as i8 - self.fetched as i8;
+        self.set_flag(Flags::C, temp >= 0);
+        self.set_zero_negative_flag(temp as u8);
+        0
+    }
+
+    /// Exclusive OR
+    pub fn eor(&mut self, bus: Bus) -> u8 {
+        self.fetch(bus);
+        self.a ^= self.fetched;
+        self.set_zero_negative_flag(self.a);
+        1
     }
 
     /// Decrement Memory - do decrement then set appropriate flag, no store
     pub fn dec(&mut self, bus: Bus) -> u8 {
-        let temp = self.fetch(bus) - 1;
+        let temp = self.fetch(bus).wrapping_sub(1);
+        bus.write(self.addr_abs, temp & 0x00FF);
         self.set_zero_negative_flag(temp);
         0
     }
 
     /// Decrement X Register
     pub fn dex(&mut self, _: Bus) -> u8 {
-        self.x -= 1;
+        self.x = self.x.wrapping_sub(1);
         self.set_zero_negative_flag(self.x);
         0
     }
 
     /// Decrement Y Register
     pub fn dey(&mut self, _: Bus) -> u8 {
-        self.y -= 1;
+        self.y = self.y.wrapping_sub(1);
         self.set_zero_negative_flag(self.y);
         0
     }
 
-    pub fn eor(&mut self, _bus: Bus) -> u8 {
-        todo!()
+    /// Increment memory
+    pub fn inc(&mut self, bus: Bus) -> u8 {
+        let temp = self.fetch(bus).wrapping_add(1);
+        bus.write(self.addr_abs, temp & 0x00FF);
+        self.set_zero_negative_flag(temp);
+        0
     }
 
-    pub fn inc(&mut self, _bus: Bus) -> u8 {
-        todo!()
-    }
-
+    /// Increment X Register
     pub fn inx(&mut self, _bus: Bus) -> u8 {
-        todo!()
+        self.x = self.x.wrapping_add(1);
+        self.set_zero_negative_flag(self.x);
+        0
     }
 
+    /// Increment Y Register
     pub fn iny(&mut self, _bus: Bus) -> u8 {
-        todo!()
+        self.y = self.y.wrapping_add(1);
+        self.set_zero_negative_flag(self.y);
+        0
     }
 
-    pub fn jmp(&mut self, _bus: Bus) -> u8 {
-        todo!()
+    /// Jump
+    pub fn jmp(&mut self, bus: Bus) -> u8 {
+        self.pc = self.addr_abs;
+        0
     }
 
-    pub fn jsr(&mut self, _bus: Bus) -> u8 {
-        todo!()
+    /// Jump to Subroutine
+    pub fn jsr(&mut self, bus: Bus) -> u8 {
+        self.pc -= 1;
+
+        bus.write(
+            Self::BASE_STACK_PTR + self.stkp as u16,
+            ((self.pc >> 8) & 0x00FF) as u8,
+        );
+        self.stkp -= 1;
+
+        bus.write(
+            Self::BASE_STACK_PTR + self.stkp as u16,
+            (self.pc & 0x00FF) as u8,
+        );
+        self.stkp -= 1;
+
+        self.pc = self.addr_abs;
+        0
     }
 
     /// Load Accumulator
@@ -365,15 +401,38 @@ impl Cpu6502 {
         1
     }
 
-    pub fn lsr(&mut self, _bus: Bus) -> u8 {
-        todo!()
+    /// Logical Shift Right
+    pub fn lsr(&mut self, bus: Bus) -> u8 {
+        self.fetch(bus);
+        let temp = self.fetched >> 2;
+        self.set_flag(Flags::C, self.fetched & 0x01 > 0);
+        self.set_zero_negative_flag(temp);
+        if is_same_addr_mode(lookup_instruction(self.opcode).addr_mode, Cpu6502::imp) {
+            self.a = temp;
+        } else {
+            bus.write(self.addr_abs, temp);
+        }
+
+        0
     }
 
-    pub fn ora(&mut self, _bus: Bus) -> u8 {
-        todo!()
+    /// Logical Inclusive OR
+    pub fn ora(&mut self, bus: Bus) -> u8 {
+        self.fetch(bus);
+        self.a |= self.fetched;
+        self.set_zero_negative_flag(self.a);
+        1
     }
 
-    /// Push A
+    /// Logical AND
+    pub fn and(&mut self, bus: Bus) -> u8 {
+        self.fetch(bus);
+        self.a &= self.fetched;
+        self.set_zero_negative_flag(self.a);
+        1
+    }
+
+    /// Push A Register
     pub fn pha(&mut self, bus: Bus) -> u8 {
         // Hard-coded value for base stack pointer
         bus.write(Self::BASE_STACK_PTR + self.stkp as u16, self.a);
@@ -381,7 +440,7 @@ impl Cpu6502 {
         0
     }
 
-    /// Pop A
+    /// Pop A Register
     pub fn pla(&mut self, bus: Bus) -> u8 {
         self.stkp += 1;
         self.a = bus.read(Self::BASE_STACK_PTR + self.stkp as u16, false);
@@ -389,74 +448,161 @@ impl Cpu6502 {
         0
     }
 
-    pub fn php(&mut self, _bus: Bus) -> u8 {
-        todo!()
+    /// Push Status Register
+    pub fn php(&mut self, bus: Bus) -> u8 {
+        bus.write(Self::BASE_STACK_PTR + self.stkp as u16, self.status);
+        self.stkp -= 1;
+        0
     }
 
-    pub fn plp(&mut self, _bus: Bus) -> u8 {
-        todo!()
+    /// Pop Status Register
+    pub fn plp(&mut self, bus: Bus) -> u8 {
+        self.stkp += 1;
+        self.status = bus.read(Self::BASE_STACK_PTR + self.stkp as u16, false);
+        0
     }
 
-    pub fn rol(&mut self, _bus: Bus) -> u8 {
-        todo!()
+    /// Rotate Left
+    pub fn rol(&mut self, bus: Bus) -> u8 {
+        self.fetch(bus);
+
+        let temp = (self.fetched << 1) as u16 | self.flag(Flags::C) as u16;
+        self.set_flag(Flags::C, temp & 0xFF00 > 0);
+
+        let temp = (temp & 0x00FF) as u8;
+        self.set_zero_negative_flag(temp);
+
+        if is_same_addr_mode(lookup_instruction(self.opcode).addr_mode, Cpu6502::imp) {
+            self.a = temp;
+        } else {
+            bus.write(self.addr_abs, temp);
+        }
+
+        0
     }
 
-    pub fn ror(&mut self, _bus: Bus) -> u8 {
-        todo!()
+    /// Rotate Right
+    pub fn ror(&mut self, bus: Bus) -> u8 {
+        self.fetch(bus);
+
+        let temp = (self.flag(Flags::C) << 7) as u16 | (self.fetched >> 1) as u16;
+        self.set_flag(Flags::C, temp & 0x01 > 0);
+
+        let temp = (temp & 0x00FF) as u8;
+        self.set_zero_negative_flag(temp);
+
+        if is_same_addr_mode(lookup_instruction(self.opcode).addr_mode, Cpu6502::imp) {
+            self.a = temp;
+        } else {
+            bus.write(self.addr_abs, temp);
+        }
+
+        0
     }
 
-    pub fn rts(&mut self, _bus: Bus) -> u8 {
-        todo!()
+    /// Return from Interupt
+    pub fn rti(&mut self, bus: Bus) -> u8 {
+        self.stkp += 1;
+        self.status = bus.read(Self::BASE_STACK_PTR + self.stkp as u16, false);
+        self.set_flag(Flags::B, false);
+        self.set_flag(Flags::U, false);
+
+        self.stkp += 1;
+        let lo = bus.read(Self::BASE_STACK_PTR + self.stkp as u16, false) as u16;
+        self.stkp += 1;
+        let hi = bus.read(Self::BASE_STACK_PTR + self.stkp as u16, false) as u16;
+
+        self.pc = (hi << 8) | lo;
+        0
     }
 
+    /// Return from Subroutine
+    pub fn rts(&mut self, bus: Bus) -> u8 {
+        self.stkp += 1;
+        let lo = bus.read(Self::BASE_STACK_PTR + self.stkp as u16, false) as u16;
+
+        self.stkp += 1;
+        let hi = bus.read(Self::BASE_STACK_PTR + self.stkp as u16, false) as u16;
+
+        self.pc = ((hi << 8) | lo) + 1;
+
+        0
+    }
+
+    /// Set Carry Flag
     pub fn sec(&mut self, _bus: Bus) -> u8 {
-        todo!()
+        self.set_flag(Flags::C, true);
+        0
     }
 
+    /// Set Decimal Flag
     pub fn sed(&mut self, _bus: Bus) -> u8 {
-        todo!()
+        self.set_flag(Flags::D, true);
+        0
     }
 
+    /// Set Interrupt Disable
     pub fn sei(&mut self, _bus: Bus) -> u8 {
-        todo!()
+        self.set_flag(Flags::I, true);
+        0
     }
 
+    /// Store A Register
     pub fn sta(&mut self, bus: Bus) -> u8 {
         bus.write(self.addr_abs, self.a);
         0
     }
 
+    /// Store X Register
     pub fn stx(&mut self, bus: Bus) -> u8 {
         bus.write(self.addr_abs, self.x);
         0
     }
 
+    /// Store Y Register
     pub fn sty(&mut self, bus: Bus) -> u8 {
         bus.write(self.addr_abs, self.y);
         0
     }
 
+    /// Transfer Accumulator to X
     pub fn tax(&mut self, _bus: Bus) -> u8 {
-        todo!()
+        self.x = self.a;
+        self.set_zero_negative_flag(self.x);
+        0
     }
 
+    /// Transfer Accumulator to Y
     pub fn tay(&mut self, _bus: Bus) -> u8 {
-        todo!()
+        self.y = self.a;
+        self.set_zero_negative_flag(self.y);
+        0
     }
 
-    pub fn tsx(&mut self, _bus: Bus) -> u8 {
-        todo!()
-    }
-
+    /// Transfer X to Accumulator
     pub fn txa(&mut self, _bus: Bus) -> u8 {
-        todo!()
+        self.a = self.x;
+        self.set_zero_negative_flag(self.a);
+        0
     }
 
-    pub fn txs(&mut self, _bus: Bus) -> u8 {
-        todo!()
-    }
-
+    /// Transfer Y to Accumulator
     pub fn tya(&mut self, _bus: Bus) -> u8 {
-        todo!()
+        self.a = self.y;
+        self.set_zero_negative_flag(self.a);
+        0
+    }
+
+    /// Transfer Stack Pointer to X
+    pub fn tsx(&mut self, _bus: Bus) -> u8 {
+        self.x = self.stkp;
+        self.set_zero_negative_flag(self.x);
+        0
+    }
+
+    /// Transfer X to Stack Pointer
+    pub fn txs(&mut self, _bus: Bus) -> u8 {
+        self.stkp = self.x;
+        0
     }
 }
