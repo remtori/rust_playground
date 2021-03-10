@@ -5,7 +5,7 @@ pub fn lookup_instruction(opcode: u8) -> &'static Instruction {
     &INSN_LOOKUP[opcode as usize]
 }
 
-pub type InsnFunc = fn(&mut Cpu6502, bus: &mut crate::emulator::SystemBus) -> u8;
+pub type InsnFunc = fn(&mut Cpu6502, bus: &mut crate::system::SystemBus) -> u8;
 
 pub struct Instruction {
     pub name: &'static str,

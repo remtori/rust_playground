@@ -232,6 +232,7 @@ impl Cpu6502 {
 }
 
 /// Pointer comparison to check if two addressing mode is the same
+#[inline]
 pub fn is_same_addr_mode(a: InsnFunc, b: InsnFunc) -> bool {
     (a as *const InsnFunc).eq(&(b as *const InsnFunc))
 }

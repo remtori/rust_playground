@@ -1,6 +1,6 @@
 use std::{collections::HashMap, ops::Range};
 
-use crate::{cpu6502::Cpu6502, Device};
+use crate::{cpu6502::Cpu6502, system::SystemBus, Device};
 
 #[derive(Debug, Default)]
 pub struct Emulator {
@@ -52,38 +52,5 @@ impl Emulator {
         for (offset, byte) in data.iter().enumerate() {
             self.system_bus.ram[offset + base_offset] = *byte;
         }
-    }
-}
-
-#[derive(Debug)]
-pub struct SystemBus {
-    ram: [u8; 64 * 1024],
-}
-
-impl SystemBus {
-    pub fn new() -> SystemBus {
-        SystemBus {
-            ram: [0u8; 64 * 1024],
-        }
-    }
-
-    pub fn write(&mut self, addr: u16, data: u8) {
-        if (0x0000..=0xffff).contains(&addr) {
-            self.ram[addr as usize] = data;
-        }
-    }
-
-    pub fn read(&self, addr: u16, _readonly: bool) -> u8 {
-        if (0x0000..=0xffff).contains(&addr) {
-            self.ram[addr as usize]
-        } else {
-            0
-        }
-    }
-}
-
-impl Default for SystemBus {
-    fn default() -> Self {
-        Self::new()
     }
 }
