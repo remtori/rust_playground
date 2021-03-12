@@ -8,3 +8,4 @@ license = "MIT"
 [dependencies]
 http = { path = "../../lib/http" }
 utils = { path = "../../lib/utils" }
+lazy_static = "1.4.0"

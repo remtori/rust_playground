@@ -2429,6 +2429,7 @@ name = "proxy"
 version = "0.1.0"
 dependencies = [
  "http",
+ "lazy_static",
  "utils",
 ]
 

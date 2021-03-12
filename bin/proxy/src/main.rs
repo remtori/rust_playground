@@ -1,7 +1,7 @@
 use http::parse::*;
-use std::net::{Ipv4Addr, TcpListener, TcpStream};
+use lazy_static::lazy_static;
 use std::*;
-use std::{io::prelude::*, time::*};
+use std::{io::prelude::*, net::*, sync::*, time::*};
 use utils::prelude::*;
 
 fn main() {
@@ -65,11 +65,24 @@ impl From<std::str::Utf8Error> for Error {
     }
 }
 
+lazy_static! {
+    static ref BUFFER_CACHE: Arc<Mutex<Vec<Vec<u8>>>> = Arc::new(Mutex::new(Vec::new()));
+}
+
+fn pop_buffer() -> Vec<u8> {
+    if let Some(buffer) = BUFFER_CACHE.lock().unwrap().pop() {
+        buffer
+    } else {
+        vec![0; 8096]
+    }
+}
+
+fn put_buffer(vec: Vec<u8>) {
+    BUFFER_CACHE.lock().unwrap().push(vec);
+}
+
 fn handle_connection(mut host: TcpStream) -> Result<(), Error> {
     let mut maybe_remote: Option<TcpStream> = None;
-
-    let mut buf1 = vec![0; 8096];
-    let mut buf2 = vec![0; 8096];
 
     // host.set_read_timeout(Some(Duration::from_secs(1)))?;
     // host.set_write_timeout(Some(Duration::from_secs(1)))?;
@@ -81,6 +94,8 @@ fn handle_connection(mut host: TcpStream) -> Result<(), Error> {
             .as_millis()
             .to_string();
 
+        let mut buf1 = pop_buffer();
+        let mut buf2 = pop_buffer();
         let req_buffer = buf1.as_mut_slice();
         let res_buffer = buf2.as_mut_slice();
 
@@ -224,5 +239,8 @@ fn handle_connection(mut host: TcpStream) -> Result<(), Error> {
         }
 
         debug!("[{}] Transaction done!", transaction_id);
+
+        put_buffer(buf1);
+        put_buffer(buf2);
     }
 }
