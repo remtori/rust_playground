@@ -1,27 +1,31 @@
 pub mod bytes;
+pub mod objectpool;
 pub mod prelude;
 pub mod string;
 pub mod threadguard;
 pub mod threadpool;
 
 pub fn init_logger() -> Result<(), fern::InitError> {
-    use fern::colors::*;
     use fern::*;
+    use std::ffi::*;
     use std::*;
 
-    let colors = ColoredLevelConfig::new()
-        .error(Color::Red)
-        .warn(Color::Yellow)
-        .info(Color::Green)
-        .debug(Color::Magenta)
-        .trace(Color::White);
+    let log_file_path = {
+        let bin_path = env::current_exe()?;
+        let mut bin_name = bin_path.file_stem();
+        let log_file_name = bin_name.get_or_insert(OsStr::new("unknown"));
+        let mut log_file_path = OsString::from("logs/");
+        log_file_path.push(log_file_name);
+        log_file_path.push(".log");
+        log_file_path
+    };
 
     Dispatch::new()
         .format(move |out, message, record| {
             out.finish(format_args!(
                 "{}[{:5}][{}][{}]: {}",
                 chrono::Local::now().format("[%Y-%m-%d][%H:%M:%S]"),
-                colors.color(record.level()),
+                record.level(),
                 record.target(),
                 thread::current().name().get_or_insert("unnamed"),
                 message
@@ -29,6 +33,7 @@ pub fn init_logger() -> Result<(), fern::InitError> {
         })
         .level(log::LevelFilter::Debug)
         .chain(std::io::stdout())
+        .chain(log_file(log_file_path)?)
         .apply()?;
 
     Ok(())
