@@ -1,7 +1,7 @@
 use http::parse::*;
-use std::io::prelude::*;
 use std::net::{Ipv4Addr, TcpListener, TcpStream};
 use std::*;
+use std::{io::prelude::*, time::*};
 use utils::prelude::*;
 
 fn main() {
@@ -21,7 +21,7 @@ fn main() {
     println!("Proxy server started on: {}:{}", addr.0.to_string(), addr.1);
 
     let listener = TcpListener::bind(addr).unwrap();
-    let pool = ThreadPool::new(4);
+    let pool = ThreadPool::new(8);
 
     for stream in listener.incoming() {
         let stream = stream.unwrap();
@@ -43,6 +43,7 @@ pub enum Error {
     HttpParse(ParseError),
     Utf8Error(std::str::Utf8Error),
     Timeout,
+    MissingHostHeader,
     Eof,
 }
 
@@ -65,51 +66,163 @@ impl From<std::str::Utf8Error> for Error {
 }
 
 fn handle_connection(mut host: TcpStream) -> Result<(), Error> {
-    // TODO: Make this thread local to avoid re-allocation
-    let mut _backing_vec1: Vec<u8> = vec![0; 8096];
-    let mut _backing_vec2: Vec<u8> = vec![0; 8096];
-    let mut req_headers = [EMPTY_HEADER; 32];
-    let mut res_headers = [EMPTY_HEADER; 32];
+    let mut maybe_remote: Option<TcpStream> = None;
 
-    let req_buffer = _backing_vec1.as_mut_slice();
-    let res_buffer = _backing_vec2.as_mut_slice();
+    let mut buf1 = vec![0; 8096];
+    let mut buf2 = vec![0; 8096];
 
-    let mut request = HttpRequest::new(&mut req_headers);
-    let mut response = HttpResponse::new(&mut res_headers);
+    // host.set_read_timeout(Some(Duration::from_secs(1)))?;
+    // host.set_write_timeout(Some(Duration::from_secs(1)))?;
 
-    let _read_size = host.read(req_buffer)?;
-    let req_header_size = request.parse(req_buffer)?;
+    loop {
+        let transaction_id = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_millis()
+            .to_string();
 
-    info!("Req:\n{}", str::from_utf8(&req_buffer[..req_header_size])?);
+        let req_buffer = buf1.as_mut_slice();
+        let res_buffer = buf2.as_mut_slice();
 
-    let req_body_size = *request
-        .header("content-length")
-        .and_then(utils::ascii_parse::<usize>)
-        .get_or_insert(0);
+        let mut req_read_size = host.read(req_buffer)?;
+        debug!(
+            "[{}] Read {} bytes from host",
+            transaction_id, req_read_size
+        );
 
-    let remote_host = str::from_utf8(request.header("host").unwrap())?;
-    let mut remote = if remote_host.contains(':') {
-        TcpStream::connect(remote_host)?
-    } else {
-        TcpStream::connect((remote_host, 80))?
-    };
+        let required_size = {
+            let mut req_headers = [EMPTY_HEADER; 32];
+            let mut request = HttpRequest::new(&mut req_headers);
+            let req_header_size = request.parse(req_buffer)?;
 
-    remote.write_all(&req_buffer[..req_header_size + req_body_size])?;
+            trace!(
+                "[{}] Req:\n{}",
+                transaction_id,
+                str::from_utf8(&req_buffer[..req_header_size])?
+            );
 
-    let _read_size = remote.read(res_buffer)?;
-    let res_header_size = response.parse(res_buffer)?;
+            let req_body_size = *request
+                .header("content-length")
+                .and_then(utils::ascii_parse::<usize>)
+                .get_or_insert(0);
 
-    info!(
-        "Res:\n{}",
-        str::from_utf8(&res_buffer[..res_header_size]).unwrap()
-    );
+            trace!(
+                "[{}] Host request content-length: {}",
+                transaction_id,
+                req_body_size
+            );
 
-    let res_body_size = *response
-        .header("content-length")
-        .and_then(utils::ascii_parse::<usize>)
-        .get_or_insert(0);
+            if maybe_remote.is_none() {
+                let remote_host =
+                    str::from_utf8(request.header("host").ok_or(Error::MissingHostHeader)?)?;
 
-    host.write_all(&res_buffer[..res_header_size + res_body_size])?;
+                trace!(
+                    "[{}] Uninitialize remote, connecting to: {}",
+                    transaction_id,
+                    remote_host
+                );
 
-    Ok(())
+                let remote = if remote_host.contains(':') {
+                    TcpStream::connect(remote_host)?
+                } else {
+                    TcpStream::connect((remote_host, 80))?
+                };
+
+                // remote.set_read_timeout(Some(Duration::from_secs(4)))?;
+                // remote.set_write_timeout(Some(Duration::from_secs(4)))?;
+
+                maybe_remote = Some(remote);
+            }
+
+            req_header_size + req_body_size
+        };
+        debug!(
+            "[{}] Required sent bytes is {}",
+            transaction_id, required_size
+        );
+
+        let remote = maybe_remote.as_mut().unwrap();
+
+        let mut sent_size = 0;
+        while sent_size < required_size {
+            remote.write_all(&req_buffer[..req_read_size])?;
+            sent_size += req_read_size;
+            debug!(
+                "[{}] Sent {} bytes to remote",
+                transaction_id, req_read_size
+            );
+
+            if sent_size >= required_size {
+                break;
+            }
+
+            req_read_size = host.read(req_buffer)?;
+            debug!(
+                "[{}] Read {} bytes from host",
+                transaction_id, req_read_size
+            );
+
+            if req_read_size == 0 {
+                return Err(Error::Eof);
+            }
+        }
+
+        let mut res_read_size = remote.read(res_buffer)?;
+        debug!(
+            "[{}] Read {} bytes from remote",
+            transaction_id, res_read_size
+        );
+
+        let required_size = {
+            let mut res_headers = [EMPTY_HEADER; 32];
+            let mut response = HttpResponse::new(&mut res_headers);
+            let res_header_size = response.parse(res_buffer)?;
+
+            trace!(
+                "[{}] Res:\n{}",
+                transaction_id,
+                str::from_utf8(&res_buffer[..res_header_size])?
+            );
+
+            let res_body_size = *response
+                .header("content-length")
+                .and_then(utils::ascii_parse::<usize>)
+                .get_or_insert(0);
+
+            trace!(
+                "[{}] Remote response content-length: {}",
+                transaction_id,
+                res_body_size
+            );
+
+            res_header_size + res_body_size
+        };
+        debug!(
+            "[{}] Required receive bytes is {}",
+            transaction_id, required_size
+        );
+
+        let mut sent_size = 0;
+        while sent_size < required_size {
+            host.write_all(&res_buffer[..res_read_size])?;
+            sent_size += res_read_size;
+            debug!("[{}] Sent {} bytes to host", transaction_id, res_read_size);
+
+            if sent_size >= required_size {
+                break;
+            }
+
+            res_read_size = remote.read(res_buffer)?;
+            debug!(
+                "[{}] Read {} bytes from remote",
+                transaction_id, res_read_size
+            );
+
+            if res_read_size == 0 {
+                return Err(Error::Eof);
+            }
+        }
+
+        debug!("[{}] Transaction done!", transaction_id);
+    }
 }
