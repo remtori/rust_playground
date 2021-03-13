@@ -1,7 +1,7 @@
 use http::parse::*;
 use lazy_static::lazy_static;
 use std::*;
-use std::{io::prelude::*, net::*, sync::*, time::*};
+use std::{io::prelude::*, net::*, time::*};
 use utils::prelude::*;
 
 fn main() {
@@ -66,19 +66,7 @@ impl From<std::str::Utf8Error> for Error {
 }
 
 lazy_static! {
-    static ref BUFFER_CACHE: Arc<Mutex<Vec<Vec<u8>>>> = Arc::new(Mutex::new(Vec::new()));
-}
-
-fn pop_buffer() -> Vec<u8> {
-    if let Some(buffer) = BUFFER_CACHE.lock().unwrap().pop() {
-        buffer
-    } else {
-        vec![0; 8096]
-    }
-}
-
-fn put_buffer(vec: Vec<u8>) {
-    BUFFER_CACHE.lock().unwrap().push(vec);
+    static ref BUFFER_POOL: ObjectPool<Vec<u8>> = ObjectPool::new();
 }
 
 fn handle_connection(mut host: TcpStream) -> Result<(), Error> {
@@ -87,17 +75,17 @@ fn handle_connection(mut host: TcpStream) -> Result<(), Error> {
     // host.set_read_timeout(Some(Duration::from_secs(1)))?;
     // host.set_write_timeout(Some(Duration::from_secs(1)))?;
 
+    let mut buf1 = BUFFER_POOL.take();
+    let mut buf2 = BUFFER_POOL.take();
+    let req_buffer = buf1.as_mut_slice();
+    let res_buffer = buf2.as_mut_slice();
+
     loop {
         let transaction_id = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_millis()
             .to_string();
-
-        let mut buf1 = pop_buffer();
-        let mut buf2 = pop_buffer();
-        let req_buffer = buf1.as_mut_slice();
-        let res_buffer = buf2.as_mut_slice();
 
         let mut req_read_size = host.read(req_buffer)?;
         debug!(
@@ -116,6 +104,8 @@ fn handle_connection(mut host: TcpStream) -> Result<(), Error> {
                 str::from_utf8(&req_buffer[..req_header_size])?
             );
 
+            trace!("[{}] Connecting to: {}", transaction_id, request.uri());
+
             let req_body_size = *request
                 .header("content-length")
                 .and_then(utils::ascii_parse::<usize>)
@@ -130,12 +120,6 @@ fn handle_connection(mut host: TcpStream) -> Result<(), Error> {
             if maybe_remote.is_none() {
                 let remote_host =
                     str::from_utf8(request.header("host").ok_or(Error::MissingHostHeader)?)?;
-
-                trace!(
-                    "[{}] Uninitialize remote, connecting to: {}",
-                    transaction_id,
-                    remote_host
-                );
 
                 let remote = if remote_host.contains(':') {
                     TcpStream::connect(remote_host)?
@@ -239,8 +223,5 @@ fn handle_connection(mut host: TcpStream) -> Result<(), Error> {
         }
 
         debug!("[{}] Transaction done!", transaction_id);
-
-        put_buffer(buf1);
-        put_buffer(buf2);
     }
 }
