@@ -1,4 +1,5 @@
 pub use super::bytes::*;
+pub use super::objectpool::*;
 pub use super::string::*;
 pub use super::threadguard::*;
 pub use super::threadpool::*;
