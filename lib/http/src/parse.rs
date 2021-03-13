@@ -7,7 +7,7 @@ pub const EMPTY_HEADER: Header<'static> = Header {
 };
 
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum Method {
     GET,
     POST,
@@ -18,10 +18,9 @@ pub enum Method {
     OPTIONS,
     TRACE,
     PATCH,
-    Ext(String),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum Version {
     V10,
     V11,
@@ -39,6 +38,7 @@ pub enum ParseError {
     PartialData,
     ParseUtf8Err,
     ParseStatusCode,
+    InvalidMethod,
     InvalidUri,
     InvalidVersion,
     InvalidHeaderField,
@@ -121,6 +121,18 @@ impl<'buf, 'h> HttpRequest<'buf, 'h> {
 
         None
     }
+
+    pub fn method(&self) -> Method {
+        self.method
+    }
+
+    pub fn uri(&self) -> &str {
+        self.uri
+    }
+
+    pub fn version(&self) -> Version {
+        self.version
+    }
 }
 
 #[derive(Debug)]
@@ -200,6 +212,18 @@ impl<'buf, 'h> HttpResponse<'buf, 'h> {
 
         None
     }
+
+    pub fn version(&self) -> Version {
+        self.version
+    }
+
+    pub fn code(&self) -> u16 {
+        self.code
+    }
+
+    pub fn status(&self) -> &str {
+        self.status
+    }
 }
 
 fn parse_method(buffer: &mut BytesRef) -> Result<Method> {
@@ -213,7 +237,8 @@ fn parse_method(buffer: &mut BytesRef) -> Result<Method> {
         Some(b"OPTIONS") => Ok(Method::OPTIONS),
         Some(b"TRACE") => Ok(Method::TRACE),
         Some(b"PATCH") => Ok(Method::PATCH),
-        Some(s) => Ok(Method::Ext(str::from_utf8(s)?.to_string())),
+        // Some(s) => Ok(Method::Ext(str::from_utf8(s)?.to_string())),
+        Some(_) => Err(ParseError::InvalidMethod),
         None => Err(ParseError::PartialData),
     }
 }
