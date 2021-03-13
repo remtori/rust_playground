@@ -7,7 +7,7 @@ use ggez::{
     timer, Context, ContextBuilder, GameResult,
 };
 use nes::{cpu6502::Cpu6502, emulator::Emulator};
-use std::collections::HashMap;
+use std::{collections::HashMap, env};
 use utils::prelude::*;
 
 const PROGRAM: [u8; 28] = [
@@ -31,6 +31,7 @@ fn main() -> GameResult<()> {
                 .dimensions(WIDTH, HEIGHT)
                 .resizable(true),
         )
+        .add_resource_path(env::current_dir()?.join("resources"))
         .build()
         .expect("aieee, could not create ggez context!");
 
