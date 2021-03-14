@@ -355,7 +355,7 @@ impl Cpu6502 {
     }
 
     /// Jump
-    pub fn jmp(&mut self, bus: Bus) -> u8 {
+    pub fn jmp(&mut self, _bus: Bus) -> u8 {
         self.pc = self.addr_abs;
         0
     }
