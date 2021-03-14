@@ -99,7 +99,7 @@ impl Cpu6502 {
                     (hi << 8) | lo
                 )
             } else if is_same_addr_mode(insn.addr_mode, Cpu6502::rel) {
-                let lo = bus.read(addr, true) as u16;
+                let lo = bus.read(addr, true) as i8;
                 addr += 1;
 
                 format!(
@@ -107,7 +107,7 @@ impl Cpu6502 {
                     line_addr,
                     insn.name,
                     lo,
-                    addr + lo
+                    addr as i32 + lo as i32
                 )
             } else {
                 unreachable!()
