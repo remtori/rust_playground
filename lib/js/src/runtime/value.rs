@@ -21,11 +21,11 @@ pub enum PreferredType {
     String,
 }
 
-impl ast::ASTNode for Value {
-    fn eval(&mut self, _: &mut Context) -> Value {
-        self.clone()
-    }
-}
+// impl ast::ASTNode for Value {
+//     fn eval(&mut self, _: &mut Context) -> Value {
+//         self.clone()
+//     }
+// }
 
 impl fmt::Debug for Value {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -44,7 +44,6 @@ impl fmt::Debug for Value {
 }
 
 impl Value {
-
     // Constructors
 
     pub fn nan() -> Value {
@@ -128,7 +127,6 @@ impl Value {
             Value::Symbol(_) => true,
             Value::String(s) => !s.is_empty(),
             Value::Object(_) => true,
-
         }
     }
 

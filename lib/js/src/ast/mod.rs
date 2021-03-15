@@ -8,25 +8,14 @@ pub mod statement;
 pub use expression::*;
 pub use statement::*;
 
-pub trait DebugPrint {
-    fn debug_fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result;
-}
+#[derive(Debug)]
+pub struct ExecutionError {}
+
+pub type Result<T> = core::result::Result<T, ExecutionError>;
 
 #[allow(clippy::upper_case_acronyms)]
-pub trait ASTNode: DebugPrint {
-    fn eval(&mut self, context: &mut Context) -> Value;
-}
-
-impl fmt::Debug for Box<dyn ASTNode> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.debug_fmt(f)
-    }
-}
-
-impl<T: fmt::Debug + ASTNode> DebugPrint for T {
-    fn debug_fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        fmt::Debug::fmt(self, f)
-    }
+pub trait ASTNode: fmt::Debug {
+    fn eval(&mut self, context: &mut Context) -> Result<Value>;
 }
 
 #[derive(Debug, Default)]

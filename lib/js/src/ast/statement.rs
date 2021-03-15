@@ -7,7 +7,7 @@ pub enum Statement {
 }
 
 impl ASTNode for Statement {
-    fn eval(&mut self, context: &mut Context) -> Value {
+    fn eval(&mut self, context: &mut Context) -> Result<Value> {
         match self {
             Statement::ExpressionStatement(expr) => expr.eval(context),
             Statement::VariableDeclaration(vd) => vd.eval(context),
@@ -29,13 +29,13 @@ pub struct VariableDeclaration {
 }
 
 impl ASTNode for VariableDeclaration {
-    fn eval(&mut self, context: &mut Context) -> Value {
+    fn eval(&mut self, context: &mut Context) -> Result<Value> {
         for (id, init) in self.declarations.iter_mut() {
-            let init_value = init.eval(context);
+            let init_value = init.eval(context)?;
             context.set_variable(id.name().clone(), init_value);
         }
 
-        Value::Undefined
+        Ok(Value::Undefined)
     }
 }
 

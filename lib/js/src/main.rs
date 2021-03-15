@@ -2,9 +2,9 @@
 
 use js::{
     ast::{ASTNode, Expression},
-    runtime::Value,
     parser::{lexer::Lexer, token::TokenKind, Parser},
-    Context
+    runtime::Value,
+    Context,
 };
 
 fn main() {
@@ -24,8 +24,14 @@ fn main() {
         "#,
     );
 
-    let mut program = parser.parse_program();
-    for statement in program.statements_mut().iter_mut() {
-        println!("{:?}", statement.eval(&mut context));
+    match parser.parse_program() {
+        Ok(mut program) => {
+            for statement in program.statements_mut().iter_mut() {
+                println!("{:?}", statement.eval(&mut context));
+            }
+        }
+        Err(err) => {
+            println!("{}", err);
+        }
     }
 }

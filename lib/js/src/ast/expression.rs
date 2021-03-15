@@ -8,7 +8,7 @@ pub enum Expression {
 }
 
 impl ASTNode for Expression {
-    fn eval(&mut self, context: &mut Context) -> Value {
+    fn eval(&mut self, context: &mut Context) -> Result<Value> {
         match self {
             Expression::BinaryOperation(op) => op.eval(context),
             Expression::Identifier(id) => id.eval(context),
@@ -23,11 +23,11 @@ pub struct Identifier {
 }
 
 impl ASTNode for Identifier {
-    fn eval(&mut self, context: &mut Context) -> Value {
+    fn eval(&mut self, context: &mut Context) -> Result<Value> {
         if let Some(v) = context.get_variable(&self.name) {
-            v
+            Ok(v)
         } else {
-            Value::Undefined
+            Ok(Value::Undefined)
         }
     }
 }
@@ -35,7 +35,7 @@ impl ASTNode for Identifier {
 impl Identifier {
     pub fn new(str: &str) -> Identifier {
         Identifier {
-            name: String::from(str)
+            name: String::from(str),
         }
     }
 
@@ -67,15 +67,15 @@ impl Literal {
 }
 
 impl ASTNode for Literal {
-    fn eval(&mut self, context: &mut Context) -> Value {
-        match self {
+    fn eval(&mut self, _context: &mut Context) -> Result<Value> {
+        Ok(match self {
             Literal::Null => Value::Null,
             Literal::Boolean(b) => Value::Boolean(*b),
             Literal::Integer(v) => Value::Integer(*v),
             Literal::Rational(v) => Value::Rational(*v),
             Literal::BigInt(_) => todo!(),
             Literal::String(s) => Value::String(s.clone()),
-        }
+        })
     }
 }
 
@@ -88,7 +88,6 @@ pub enum BitwiseOp {
     ShiftRight,
     UnsignedShiftRight,
 }
-
 
 #[derive(Debug, PartialEq)]
 pub enum AssignmentOp {
@@ -201,7 +200,7 @@ impl BinaryOperation {
                         } else {
                             Value::Rational((left as f64) / (right as f64))
                         }
-                    },
+                    }
                     NumericOp::Exponent => {
                         if right >= 0 {
                             Value::Integer(left.pow(right as u32))
@@ -216,8 +215,7 @@ impl BinaryOperation {
         match (&left_value, &right_value) {
             (Value::Integer(_), Value::Rational(_))
             | (Value::Rational(_), Value::Integer(_))
-            | (Value::Rational(_), Value::Rational(_))
-            => {
+            | (Value::Rational(_), Value::Rational(_)) => {
                 let left = left_value.as_f64();
                 let right = right_value.as_f64();
 
@@ -254,46 +252,74 @@ impl BinaryOperation {
             BitwiseOp::Xor => Value::Integer(left ^ right),
             BitwiseOp::ShiftLeft => Value::Integer(left << (right % 32)),
             BitwiseOp::ShiftRight => Value::Integer(left >> (right % 32)),
-            BitwiseOp::UnsignedShiftRight => Value::Integer(
-                (left_value.to_u32() >> (right_value.to_u32() % 32)) as i32
-            ),
+            BitwiseOp::UnsignedShiftRight => {
+                Value::Integer((left_value.to_u32() >> (right_value.to_u32() % 32)) as i32)
+            }
         }
     }
 
-    fn do_compare_op(op: &CompareOp, left_value: Value, right_value: Value) -> Value {
+    fn do_compare_op(op: &CompareOp, left_value: Value, right_value: Value) -> Result<Value> {
         todo!()
     }
 
-    fn do_assignment_op(&mut self, context: &mut Context) -> Value {
+    fn do_assignment_op(&mut self, context: &mut Context) -> Result<Value> {
         let op = if let BinaryOp::AssignmentOp(op) = &self.op {
             op
         } else {
             panic!("Called do_assignment_op on non-assignment operation");
         };
 
-        let left_value = self.lhs.eval(context);
-        let right_value = self.rhs.eval(context);
+        let left_value = self.lhs.eval(context)?;
+        let right_value = self.rhs.eval(context)?;
         if let Expression::Identifier(ident) = self.lhs.as_ref() {
             let value = match op {
                 AssignmentOp::Assignment => right_value,
-                AssignmentOp::AdditionAssignment => Self::do_numeric_op(&NumericOp::Addition, left_value, right_value),
-                AssignmentOp::SubtractionAssignment => Self::do_numeric_op(&NumericOp::Subtraction, left_value, right_value),
-                AssignmentOp::MultiplicationAssignment => Self::do_numeric_op(&NumericOp::Multiplication, left_value, right_value),
-                AssignmentOp::DivisionAssignment => Self::do_numeric_op(&NumericOp::Division, left_value, right_value),
-                AssignmentOp::ModuloAssignment => Self::do_numeric_op(&NumericOp::Modulo, left_value, right_value),
-                AssignmentOp::ExponentAssignment => Self::do_numeric_op(&NumericOp::Exponent, left_value, right_value),
-                AssignmentOp::BitAndAssignment => Self::do_bitwise_op(&BitwiseOp::And, left_value, right_value),
-                AssignmentOp::BitOrAssignment => Self::do_bitwise_op(&BitwiseOp::Or, left_value, right_value),
-                AssignmentOp::BitXorAssignment => Self::do_bitwise_op(&BitwiseOp::Xor, left_value, right_value),
-                AssignmentOp::ShiftLeftAssignment => Self::do_bitwise_op(&BitwiseOp::ShiftLeft, left_value, right_value),
-                AssignmentOp::ShiftRightAssignment => Self::do_bitwise_op(&BitwiseOp::ShiftRight, left_value, right_value),
-                AssignmentOp::UnsignedShiftRightAssignment => Self::do_bitwise_op(&BitwiseOp::UnsignedShiftRight, left_value, right_value),
-                AssignmentOp::BoolAndAssignment => Value::Boolean(left_value.to_boolean() && right_value.to_boolean()),
-                AssignmentOp::BoolOrAssignment => Value::Boolean(left_value.to_boolean() || right_value.to_boolean()),
+                AssignmentOp::AdditionAssignment => {
+                    Self::do_numeric_op(&NumericOp::Addition, left_value, right_value)
+                }
+                AssignmentOp::SubtractionAssignment => {
+                    Self::do_numeric_op(&NumericOp::Subtraction, left_value, right_value)
+                }
+                AssignmentOp::MultiplicationAssignment => {
+                    Self::do_numeric_op(&NumericOp::Multiplication, left_value, right_value)
+                }
+                AssignmentOp::DivisionAssignment => {
+                    Self::do_numeric_op(&NumericOp::Division, left_value, right_value)
+                }
+                AssignmentOp::ModuloAssignment => {
+                    Self::do_numeric_op(&NumericOp::Modulo, left_value, right_value)
+                }
+                AssignmentOp::ExponentAssignment => {
+                    Self::do_numeric_op(&NumericOp::Exponent, left_value, right_value)
+                }
+                AssignmentOp::BitAndAssignment => {
+                    Self::do_bitwise_op(&BitwiseOp::And, left_value, right_value)
+                }
+                AssignmentOp::BitOrAssignment => {
+                    Self::do_bitwise_op(&BitwiseOp::Or, left_value, right_value)
+                }
+                AssignmentOp::BitXorAssignment => {
+                    Self::do_bitwise_op(&BitwiseOp::Xor, left_value, right_value)
+                }
+                AssignmentOp::ShiftLeftAssignment => {
+                    Self::do_bitwise_op(&BitwiseOp::ShiftLeft, left_value, right_value)
+                }
+                AssignmentOp::ShiftRightAssignment => {
+                    Self::do_bitwise_op(&BitwiseOp::ShiftRight, left_value, right_value)
+                }
+                AssignmentOp::UnsignedShiftRightAssignment => {
+                    Self::do_bitwise_op(&BitwiseOp::UnsignedShiftRight, left_value, right_value)
+                }
+                AssignmentOp::BoolAndAssignment => {
+                    Value::Boolean(left_value.to_boolean() && right_value.to_boolean())
+                }
+                AssignmentOp::BoolOrAssignment => {
+                    Value::Boolean(left_value.to_boolean() || right_value.to_boolean())
+                }
             };
 
             context.set_variable(ident.name().clone(), value.clone());
-            value
+            Ok(value)
         } else {
             unreachable!()
         }
@@ -301,38 +327,36 @@ impl BinaryOperation {
 }
 
 impl ASTNode for BinaryOperation {
-    fn eval(&mut self, context: &mut Context) -> Value {
-        match &self.op {
-            BinaryOp::NumericOp(_) |
-            BinaryOp::BitwiseOp(_) |
-            BinaryOp::CompareOp(_) => {
-                let left_value = self.lhs.eval(context);
-                let right_value = self.rhs.eval(context);
+    fn eval(&mut self, context: &mut Context) -> Result<Value> {
+        Ok(match &self.op {
+            BinaryOp::NumericOp(_) | BinaryOp::BitwiseOp(_) | BinaryOp::CompareOp(_) => {
+                let left_value = self.lhs.eval(context)?;
+                let right_value = self.rhs.eval(context)?;
 
                 match &self.op {
                     BinaryOp::NumericOp(op) => Self::do_numeric_op(&op, left_value, right_value),
                     BinaryOp::BitwiseOp(op) => Self::do_bitwise_op(&op, left_value, right_value),
-                    BinaryOp::CompareOp(op) => Self::do_compare_op(&op, left_value, right_value),
-                    _ => unreachable!()
+                    BinaryOp::CompareOp(op) => Self::do_compare_op(&op, left_value, right_value)?,
+                    _ => unreachable!(),
                 }
-            },
-            BinaryOp::AssignmentOp(_) => self.do_assignment_op(context),
+            }
+            BinaryOp::AssignmentOp(_) => self.do_assignment_op(context)?,
             BinaryOp::BoolAnd => {
-                let left_value = self.lhs.eval(context);
+                let left_value = self.lhs.eval(context)?;
                 if left_value.to_boolean() {
-                    self.rhs.eval(context)
+                    self.rhs.eval(context)?
                 } else {
                     left_value
                 }
-            },
+            }
             BinaryOp::BoolOr => {
-                let left_value = self.lhs.eval(context);
+                let left_value = self.lhs.eval(context)?;
                 if !left_value.to_boolean() {
-                    self.rhs.eval(context)
+                    self.rhs.eval(context)?
                 } else {
                     left_value
                 }
-            },
-        }
+            }
+        })
     }
 }
