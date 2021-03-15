@@ -6,20 +6,16 @@ use ggez::{
     graphics::{self, Color, DrawParam, Font, Image, Scale, Text, TextFragment},
     timer, Context, ContextBuilder, GameResult,
 };
-use nes::{cpu6502::Cpu6502, emulator::Emulator};
+use nes::{
+    cpu6502::{Cpu6502, Flags},
+    emulator::Emulator,
+    ppu2C02::{Ppu2C02, SCREEN_HEIGHT, SCREEN_WIDTH},
+};
 use std::{collections::HashMap, env};
 use utils::prelude::*;
 
-const PROGRAM: [u8; 28] = [
-    0xA2, 0x0A, 0x8E, 0x00, 0x00, 0xA2, 0x03, 0x8E, 0x01, 0x00, 0xAC, 0x00, 0x00, 0xA9, 0x00, 0x18,
-    0x6D, 0x01, 0x00, 0x88, 0xD0, 0xFA, 0x8D, 0x02, 0x00, 0xEA, 0xEA, 0xEA,
-];
-
 const WIDTH: f32 = 960.0;
 const HEIGHT: f32 = 540.0;
-const NES_WIDTH: u16 = 256;
-const NES_HEIGHT: u16 = 240;
-const NES_SCALE: u16 = 2;
 
 fn main() -> GameResult<()> {
     utils::init_logger().unwrap();
@@ -31,7 +27,7 @@ fn main() -> GameResult<()> {
                 .dimensions(WIDTH, HEIGHT)
                 .resizable(true),
         )
-        .add_resource_path(env::current_dir()?.join("resources"))
+        .add_resource_path(env::current_dir()?.join("res"))
         .build()
         .expect("aieee, could not create ggez context!");
 
@@ -47,7 +43,6 @@ struct App {
     is_step_mode: bool,
     emulator: Emulator,
     disassembly: HashMap<u16, String>,
-    pixel_buffer: Vec<u8>,
 }
 
 impl App {
@@ -55,11 +50,8 @@ impl App {
         let font = Font::new(ctx, "/CascadiaMono.ttf")?;
         let mut emulator = {
             let mut nes = Emulator::default();
-            nes.write_ram(0x8000, &PROGRAM);
-
-            nes.write_ram(Cpu6502::DEFAULT_PC + 0, &[0x00]);
-            nes.write_ram(Cpu6502::DEFAULT_PC + 1, &[0x80]);
             nes.reset();
+
             nes
         };
 
@@ -70,11 +62,6 @@ impl App {
             is_step_mode: true,
             disassembly,
             emulator,
-            pixel_buffer: vec![
-                0xcc;
-                4 * (NES_WIDTH * NES_HEIGHT) as usize
-                    * (NES_SCALE * NES_SCALE) as usize
-            ],
         })
     }
 }
@@ -82,7 +69,7 @@ impl App {
 impl EventHandler for App {
     fn update(&mut self, ctx: &mut Context) -> GameResult<()> {
         if !self.is_step_mode {
-            self.emulator.tick(1);
+            self.emulator.tick();
         }
 
         // timer::sleep(timer::remaining_update_time(ctx));
@@ -94,18 +81,32 @@ impl EventHandler for App {
 
         let mut stats = Text::new("STATUS: ");
         stats.set_font(self.font, Scale::uniform(18.0));
-        stats.add(TextFragment::new("N ").color(Color::from_rgb_u32(0x00ff00)));
-        stats.add(TextFragment::new("V ").color(Color::from_rgb_u32(0x00ff00)));
-        stats.add(TextFragment::new("- ").color(Color::from_rgb_u32(0x00ff00)));
-        stats.add(TextFragment::new("B ").color(Color::from_rgb_u32(0x00ff00)));
-        stats.add(TextFragment::new("D ").color(Color::from_rgb_u32(0x00ff00)));
-        stats.add(TextFragment::new("I ").color(Color::from_rgb_u32(0x00ff00)));
-        stats.add(TextFragment::new("Z ").color(Color::from_rgb_u32(0x00ff00)));
-        stats.add(TextFragment::new("C ").color(Color::from_rgb_u32(0x00ff00)));
-        stats.add("\n");
 
         let cpu = self.emulator.cpu();
         let pc = cpu.program_counter();
+
+        {
+            macro_rules! color {
+                ($flag: ident) => {
+                    Color::from_rgb_u32(if cpu.flag(Flags::$flag) > 0 {
+                        0x00ff00
+                    } else {
+                        0xffffff
+                    })
+                };
+            }
+
+            stats.add(TextFragment::new("N ").color(color!(N)));
+            stats.add(TextFragment::new("V ").color(color!(V)));
+            stats.add(TextFragment::new("- ").color(color!(U)));
+            stats.add(TextFragment::new("B ").color(color!(B)));
+            stats.add(TextFragment::new("D ").color(color!(D)));
+            stats.add(TextFragment::new("I ").color(color!(I)));
+            stats.add(TextFragment::new("Z ").color(color!(Z)));
+            stats.add(TextFragment::new("C ").color(color!(C)));
+            stats.add("\n");
+        }
+
         stats.add(format!("PC: ${:04x}\n", pc));
         stats.add(format!(
             "A: ${:02x} [{}]\n",
@@ -151,11 +152,11 @@ impl EventHandler for App {
 
         let img = graphics::Image::from_rgba8(
             ctx,
-            NES_WIDTH * NES_SCALE,
-            NES_HEIGHT * NES_SCALE,
-            &self.pixel_buffer,
+            SCREEN_WIDTH as u16,
+            SCREEN_HEIGHT as u16,
+            self.emulator.ppu().screen(),
         )?;
-        graphics::draw(ctx, &img, DrawParam::default())?;
+        graphics::draw(ctx, &img, DrawParam::default().scale([2.0, 2.0]))?;
 
         graphics::present(ctx)
     }

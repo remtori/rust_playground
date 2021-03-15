@@ -1,11 +1,12 @@
 use std::{collections::HashMap, ops::Range};
 
-use crate::{cpu6502::Cpu6502, system::SystemBus, Device};
+use crate::{cpu6502::Cpu6502, ppu2C02::Ppu2C02, system::SystemBus, Device};
 
 #[derive(Debug, Default)]
 pub struct Emulator {
     cpu: Cpu6502,
     system_bus: SystemBus,
+    clock_counter: u32,
 }
 
 impl Emulator {
@@ -13,14 +14,19 @@ impl Emulator {
         Emulator {
             cpu: Cpu6502::new(),
             system_bus: SystemBus::new(),
+            clock_counter: 0,
         }
     }
 
-    pub fn tick(&mut self, cycle: u16) {
+    pub fn tick(&mut self) {
         let bus = &mut self.system_bus;
-        for _ in 0..cycle {
+
+        bus.ppu.tick();
+        if self.clock_counter % 3 == 0 {
             self.cpu.tick(bus);
         }
+
+        self.clock_counter += 1;
     }
 
     pub fn disassemble(&mut self, addr_range: Range<u16>) -> HashMap<u16, String> {
@@ -32,9 +38,14 @@ impl Emulator {
         &self.cpu
     }
 
+    pub fn ppu(&self) -> &Ppu2C02 {
+        &self.system_bus.ppu
+    }
+
     pub fn reset(&mut self) {
         let bus = &mut self.system_bus;
         self.cpu.reset(bus);
+        self.clock_counter = 0;
     }
 
     pub fn step(&mut self) {
@@ -44,13 +55,6 @@ impl Emulator {
             if self.cpu.complete() {
                 break;
             }
-        }
-    }
-
-    pub fn write_ram(&mut self, offset: u16, data: &[u8]) {
-        let base_offset = offset as usize;
-        for (offset, byte) in data.iter().enumerate() {
-            self.system_bus.ram[offset + base_offset] = *byte;
         }
     }
 }

@@ -2004,6 +2004,7 @@ checksum = "c44922cb3dbb1c70b5e5f443d63b64363a898564d739ba5198e3a9138442868d"
 name = "nes"
 version = "0.1.0"
 dependencies = [
+ "bitflags",
  "ggez",
  "lazy_static",
  "utils",
