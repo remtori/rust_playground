@@ -111,7 +111,7 @@ impl<'l> Token<'l> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq, Ord)]
-// #[repr(u8)]
+#[repr(u8)]
 pub enum TokenKind {
     Invalid,
     Eof,
