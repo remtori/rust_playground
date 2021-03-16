@@ -34,10 +34,10 @@ impl<'s> Parser<'s> {
         while !self.done() {
             if self.match_declaration() {
                 program.add_statement(self.parse_declaration()?);
-                self.consume_or_insert_semicolon()?;
+                self.consume_or_insert_semicolon();
             } else if self.match_statement() {
                 program.add_statement(self.parse_statement()?);
-                self.consume_or_insert_semicolon()?;
+                self.consume_or_insert_semicolon();
             } else {
                 return Err(ParseError::unexpected(self.consume()));
             }
@@ -51,9 +51,59 @@ impl<'s> Parser<'s> {
             Ok(Statement::VariableDeclaration(
                 self.parse_variable_declaration()?,
             ))
+        } else if self.current_token.kind() == TokenKind::Function {
+            Ok(Statement::FunctionDeclaration(
+                self.parse_function_declaration()?,
+            ))
         } else {
             todo!()
         }
+    }
+
+    fn parse_function_declaration(&mut self) -> Result<'s, FunctionDeclaration> {
+        self.consume_token(TokenKind::Function)?;
+
+        let ident = self.consume_token(TokenKind::Identifier)?;
+
+        self.consume_token(TokenKind::ParenOpen)?;
+
+        let mut params = Vec::new();
+        loop {
+            if self.current_token.kind() == TokenKind::ParenClose {
+                break;
+            }
+
+            params.push(Identifier::new(
+                self.consume_token(TokenKind::Identifier)?.value(),
+            ))
+        }
+
+        self.consume_token(TokenKind::ParenClose)?;
+
+        let body = self.parse_block_statement()?;
+
+        Ok(FunctionDeclaration::new(
+            Identifier::new(ident.value()),
+            params,
+            body,
+        ))
+    }
+
+    fn parse_block_statement(&mut self) -> Result<'s, BlockStatement> {
+        let mut block_statement = BlockStatement::new();
+
+        self.consume_token(TokenKind::CurlyOpen)?;
+        loop {
+            if self.current_token.kind() == TokenKind::CurlyClose {
+                break;
+            }
+
+            block_statement.add_statement(self.parse_statement()?);
+            self.consume_or_insert_semicolon();
+        }
+        self.consume_token(TokenKind::CurlyClose)?;
+
+        Ok(block_statement)
     }
 
     fn parse_statement(&mut self) -> Result<'s, Statement> {
@@ -61,6 +111,9 @@ impl<'s> Parser<'s> {
             Statement::VariableDeclaration(self.parse_variable_declaration()?)
         } else if self.match_expression() {
             Statement::ExpressionStatement(self.parse_expression(0, Associativity::Right)?)
+        } else if self.current_token.kind() == TokenKind::Return {
+            self.consume();
+            Statement::ReturnStatement(self.parse_expression(default(), default())?)
         } else {
             return Err(ParseError::unexpected(self.current_token));
         })
@@ -474,12 +527,9 @@ impl<'s> Parser<'s> {
         }
     }
 
-    fn consume_or_insert_semicolon(&mut self) -> Result<'s, ()> {
+    fn consume_or_insert_semicolon(&mut self) {
         if let TokenKind::Semicolon = self.current_token.kind() {
             self.consume();
-            Ok(())
-        } else {
-            Err(ParseError::expect(TokenKind::Semicolon, self.current_token))
         }
     }
 
@@ -621,7 +671,7 @@ impl<'s> Parser<'s> {
         if self.match_token(token_kind) {
             Ok(self.consume())
         } else {
-            panic!("ParseError")
+            Err(ParseError::expect(token_kind, self.current_token))
         }
     }
 
