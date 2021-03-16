@@ -1,7 +1,5 @@
 use std::*;
 
-use crate::*;
-
 #[derive(Clone)]
 pub enum Value {
     Undefined,
@@ -20,12 +18,6 @@ pub enum PreferredType {
     Number,
     String,
 }
-
-// impl ast::ASTNode for Value {
-//     fn eval(&mut self, _: &mut Context) -> Value {
-//         self.clone()
-//     }
-// }
 
 impl fmt::Debug for Value {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
