@@ -15,6 +15,17 @@ fn main() {
             function a() {
                 return 4;
             }
+
+            function b(a) {
+            }
+
+            function c(a, b, c) {
+                let a = 4;
+
+                b = 3;
+                var c = 2;
+                return a + b * c;
+            }
         "#,
     );
 

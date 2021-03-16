@@ -75,7 +75,13 @@ impl<'s> Parser<'s> {
 
             params.push(Identifier::new(
                 self.consume_token(TokenKind::Identifier)?.value(),
-            ))
+            ));
+
+            if self.current_token.kind() == TokenKind::ParenClose {
+                break;
+            }
+
+            self.consume_token(TokenKind::Comma)?;
         }
 
         self.consume_token(TokenKind::ParenClose)?;
@@ -173,9 +179,9 @@ impl<'s> Parser<'s> {
     fn parse_primary_expression(&mut self) -> Result<'s, Expression> {
         Ok(match self.current_token.kind() {
             TokenKind::ParenOpen => {
-                self.consume_token(TokenKind::ParenOpen);
+                self.consume_token(TokenKind::ParenOpen)?;
                 let expr = self.parse_expression(0, default())?;
-                self.consume_token(TokenKind::ParenClose);
+                self.consume_token(TokenKind::ParenClose)?;
                 expr
             }
             TokenKind::BoolLiteral => {
