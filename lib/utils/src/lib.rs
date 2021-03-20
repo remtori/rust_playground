@@ -1,4 +1,5 @@
 pub mod bytes;
+pub mod flystring;
 pub mod objectpool;
 pub mod prelude;
 pub mod string;
