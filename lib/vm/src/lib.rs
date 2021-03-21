@@ -1,3 +1,5 @@
+#![allow(clippy::upper_case_acronyms)]
+
 /// Bit flag to the FLAGS register
 pub enum Flag {
     /// Carry Flag. Set if the last arithmetic operation carried (addition) or borrowed (subtraction) a bit beyond the size of the register
@@ -17,7 +19,7 @@ pub enum Flag {
 }
 
 /// All integer register for the VM include general purpose and runtime specific register
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum Register {
     /// 32-bit general purpose register
     A,
@@ -28,16 +30,19 @@ pub enum Register {
     F,
 
     /// 32-bit Stack pointer
-    Sp,
+    SP,
 
     /// 32-bit Base pointer (of subroutine call)
-    Bp,
+    BP,
 
     /// 32-bit Program Counter
-    Pc,
+    PC,
 
     /// Current Program State Register/Flags
-    Cpsr,
+    CPSR,
+
+    /// NO-USE: Helper enum to get the number of Register
+    CountMark,
 }
 
 /// Addressing is the way the instruction get the memory
@@ -56,119 +61,227 @@ pub enum Addressing {
     Indirect(Register),
 }
 
+impl Addressing {
+    pub fn load(&self, vm: &VM) -> u32 {
+        match self {
+            Addressing::Direct(reg) => vm.registers[*reg as usize],
+            Addressing::Absolute(addr) => vm.heap[*addr as usize],
+            Addressing::Immediate(v) => *v as u32,
+            Addressing::Indirect(reg) => vm.heap[vm.registers[*reg as usize] as usize],
+        }
+    }
+}
+
 /// VM instruction set
 /// A custom instruction set i come up with myself :^)
 /// while referencing x86 and ARM instruction
 #[derive(Debug)]
 pub enum Instruction {
     /* ===== Memory access instructions ===== */
-
     /// Generate Program Counter relative address
-    Adr(Register, i32),
+    ADR(Register, i32),
 
     /// Load an value base on `Addressing` to `Register`
+    ///
     /// Set Z, N Flags according to the result
-    Load(Register, Addressing),
+    LOAD(Register, Addressing),
 
     /// Store an value base on `Addressing` to the memory location in `Register`
-    Store(Register, Addressing),
+    STORE(Register, Addressing),
 
     /// Push an value base on `Addressing` to the stack
-    Push(Addressing),
+    PUSH(Addressing),
 
     /// Pop an value off the stack to `Register`
+    ///
     /// Set Z, N Flags according to the result
-    Pop(Register),
+    POP(Register),
 
     /* ===== General data processing instructions ===== */
-
     /// Add the value of `Addressing` to `Register` as integer, store the result in `Register`
+    ///
     /// Set C, Z, N, O Flags according to the result
-    Add(Register, Addressing),
+    ADD(Register, Addressing),
 
     /// Subtract the value of `Addressing` to `Register` as integer, store the result in `Register`
+    ///
     /// Set C, Z, N, O Flags according to the result
-    Sub(Register, Addressing),
+    SUB(Register, Addressing),
 
     /// Multiply the value of `Addressing` to `Register` as integer, store the result in `Register`
+    ///
     /// Set Z, N Flags according to the result
-    Mul(Register, Addressing),
+    MUL(Register, Addressing),
 
     /// Divide the value of `Addressing` to `Register` as integer, store the result in `Register`
+    ///
     /// Set Z, N Flags according to the result
-    Div(Register, Addressing),
+    DIV(Register, Addressing),
 
     /// Perform logical AND operator on `Addressing` and `Register` store the result in `Register`
+    ///
     /// Set Z, N Flags according to the result
-    And(Register, Addressing),
+    AND(Register, Addressing),
 
     /// Perform logical OR operator on `Addressing` and `Register` store the result in `Register`
+    ///
     /// Set Z, N Flags according to the result
-    Or(Register, Addressing),
+    OR(Register, Addressing),
 
     /// Perform logical XOR operator on `Addressing` and `Register` store the result in `Register`
+    ///
     /// Set Z, N Flags according to the result
-    Xor(Register, Addressing),
+    XOR(Register, Addressing),
 
     /// Flip all the bit in the register
+    ///
     /// Set Z, N Flags according to the result
-    Not(Register),
+    NOT(Register),
 
     /// Performs the two's complement negation on `Register`
-    Neg(Register),
+    NEG(Register),
 
     /// Shift the bit in the `Register` to the left, padding the resulting empty bit positions with zeros
+    ///
     /// Set Z, N Flags according to the result
-    Lsl(Register, Addressing),
+    LSL(Register, Addressing),
 
     /// Shift the bit in the `Register` to the right logically (ignore sign bit),
     /// padding the resulting empty bit positions with zeros
+    ///
     /// Set Z, N Flags according to the result
+    ///
     /// Set C Flag to the last bit shifted out
-    Lsr(Register, Addressing),
+    LSR(Register, Addressing),
 
     /// Shift the bit in the `Register` to the right arithmetically (perserve sign bit),
     /// padding the resulting empty bit positions with zeros.
+    ///
     /// Set Z, N Flags according to the result
+    ///
     /// Set C Flag to the last bit shifted out
-    Asr(Register, Addressing),
+    ASR(Register, Addressing),
 
     /// Compare the value of `Addressing` to `Register` by doing subtraction
+    ///
     /// Set Z, N Flags according to the result
+    ///
     /// Equivalent to `Sub` instruction but the result is discarded
-    Cmp(Register, Addressing),
+    CMP(Register, Addressing),
 
     /* ===== Branch and control instructions ===== */
-
     /// Jump to the address value of `Addressing`
-    Jmp(Addressing),
+    JMP(Addressing),
 
     /// Jump to the address value of `Addressing` if Z == 0
-    Je(Addressing),
+    JE(Addressing),
 
     /// Jump to the address value of `Addressing` if Z == 1
-    Jne(Addressing),
+    JNE(Addressing),
 
     /// Jump to the address value of `Addressing` if Z == 0 && N == 0
-    Jg(Addressing),
+    JG(Addressing),
 
     /// Jump to the address value of `Addressing` if Z == 1 && N == 0
-    Jge(Addressing),
+    JGE(Addressing),
 
     /// Jump to the address value of `Addressing` if Z == 0 && N == 1
-    Jl(Addressing),
+    JL(Addressing),
 
     /// Jump to the address value of `Addressing` if Z == 1 && N == 1
-    Jle(Addressing),
+    JLE(Addressing),
 
     /// Push current Program Counter to the stack then jump to the address value of `Addressing`,
-    Call(Addressing),
+    CALL(Addressing),
 
     /// Pop the address from the stack then jump to that address
-    Ret,
+    RET,
 
     /* ===== Miscellaneous instructions ===== */
-
     /// Supervisor call, jump to native function (maybe a system call)
-    Svc(i32)
+    SVC(i32),
+}
+
+pub struct VM<'a> {
+    registers: [u32; Register::CountMark as usize],
+    program: &'a [Instruction],
+    stack: Vec<u32>,
+    heap: Vec<u32>,
+}
+
+impl<'a> VM<'a> {
+    pub fn new(program: &'a [Instruction]) -> VM<'a> {
+        VM {
+            registers: [0u32; Register::CountMark as usize],
+            program,
+            stack: Vec::new(),
+            heap: vec![0; 4096],
+        }
+    }
+
+    pub fn exec<F>(&mut self, mut svc: F)
+    where
+        F: FnMut(&mut Self, i32) + 'static,
+    {
+        self.registers[Register::PC as usize] = 0;
+
+        loop {
+            let instruction = &self.program[self.registers[Register::PC as usize] as usize];
+
+            match instruction {
+                Instruction::ADR(reg, offset) => {
+                    self.registers[*reg as usize] =
+                        (self.registers[Register::PC as usize] as i32 + *offset) as u32;
+                }
+                Instruction::LOAD(reg, addr) => {
+                    let value = addr.load(self);
+                    self.registers[*reg as usize] = value;
+                    // TODO: Set N, Z flag
+                }
+                Instruction::STORE(reg, addr) => {
+                    self.heap[self.registers[*reg as usize] as usize] = addr.load(self);
+                }
+                Instruction::PUSH(addr) => {
+                    self.stack.push(addr.load(self));
+                }
+                Instruction::POP(reg) => {
+                    let value = self.stack.pop().unwrap();
+                    self.registers[*reg as usize] = value;
+                    // TODO: Set N, Z flag
+                }
+                Instruction::ADD(_, _) => {}
+                Instruction::SUB(_, _) => {}
+                Instruction::MUL(_, _) => {}
+                Instruction::DIV(_, _) => {}
+                Instruction::AND(_, _) => {}
+                Instruction::OR(_, _) => {}
+                Instruction::XOR(_, _) => {}
+                Instruction::NOT(_) => {}
+                Instruction::NEG(_) => {}
+                Instruction::LSL(_, _) => {}
+                Instruction::LSR(_, _) => {}
+                Instruction::ASR(_, _) => {}
+                Instruction::CMP(_, _) => {}
+                Instruction::JMP(_) => {}
+                Instruction::JE(_) => {}
+                Instruction::JNE(_) => {}
+                Instruction::JG(_) => {}
+                Instruction::JGE(_) => {}
+                Instruction::JL(_) => {}
+                Instruction::JLE(_) => {}
+                Instruction::CALL(addr) => {
+                    let ret_addr = self.registers[Register::PC as usize] + 1;
+                    self.stack.push(ret_addr);
+                    self.registers[Register::PC as usize] = addr.load(self);
+                }
+                Instruction::RET => {
+                    self.registers[Register::PC as usize] = self.stack.pop().unwrap();
+                    continue;
+                }
+                Instruction::SVC(v) => (svc)(self, *v),
+            }
+
+            self.registers[Register::PC as usize] += 1;
+        }
+    }
 }
