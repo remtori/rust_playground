@@ -1,5 +1,3 @@
-#![allow(clippy::upper_case_acronyms)]
-
 use memmap2::MmapMut;
 use std::io::Write;
 
