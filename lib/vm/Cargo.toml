@@ -1,0 +1,9 @@
+[package]
+name = "vm"
+version = "0.1.0"
+authors = ["remtori <lqvu99@gmail.com>"]
+edition = "2018"
+license = "MIT"
+
+[dependencies]
+memmap2 = "^0.2"
