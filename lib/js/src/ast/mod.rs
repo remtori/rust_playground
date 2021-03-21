@@ -13,7 +13,6 @@ pub struct ExecutionError {}
 
 pub type Result<T> = core::result::Result<T, ExecutionError>;
 
-#[allow(clippy::upper_case_acronyms)]
 pub trait ASTNode: fmt::Debug {
     fn eval(&mut self, context: &mut Context) -> Result<Value>;
 }
