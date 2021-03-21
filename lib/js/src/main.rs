@@ -4,7 +4,7 @@ use js::{
     ast::{ASTNode, Expression},
     parser::{lexer::Lexer, token::TokenKind, Parser},
     runtime::Value,
-    Context,
+    vm::Context,
 };
 
 fn main() {

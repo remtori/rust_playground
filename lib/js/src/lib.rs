@@ -4,29 +4,11 @@
 use std::collections::HashMap;
 
 pub mod ast;
-pub mod runtime;
 pub mod parser;
+pub mod runtime;
+pub mod vm;
 
 #[macro_use]
 extern crate lazy_static;
 
-#[derive(Debug, Default)]
-pub struct Context {
-    variables: HashMap<String, runtime::Value>,
-}
-
-impl Context {
-    pub fn new() -> Context {
-        Context {
-            variables: HashMap::new(),
-        }
-    }
-
-    pub fn get_variable(&self, name: &str) -> Option<runtime::Value> {
-        self.variables.get(name).map(Clone::clone)
-    }
-
-    pub fn set_variable(&mut self, name: String, value: runtime::Value) {
-        self.variables.insert(name, value);
-    }
-}
+pub(crate) use vm::context::*;
