@@ -1,5 +1,6 @@
 use memmap2::MmapMut;
-use std::io::Write;
+use std::{io::Write, process::exit};
+use vm::VM;
 
 use std::*;
 
@@ -18,6 +19,17 @@ fn main() -> Result<(), std::io::Error> {
     println!("Cast");
 
     println!("ret={}", func());
+
+    use vm::Instruction::*;
+
+    let mut vm = VM::new(&[SVC(32), SVC(0)]);
+
+    vm.exec(|_vm, int| {
+        println!("System called: {}", int);
+        if int == 0 {
+            exit(0);
+        }
+    });
 
     Ok(())
 }

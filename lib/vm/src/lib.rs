@@ -202,6 +202,39 @@ pub enum Instruction {
     SVC(i32),
 }
 
+macro_rules! reg {
+    ($self:ident, $reg:ident) => {
+        $self.registers[Register::$reg as usize]
+    };
+    ($self:ident, *$reg:ident) => {
+        $self.registers[*$reg as usize]
+    };
+}
+
+macro_rules! flag {
+    ($self:ident, $flag:ident) => {
+        (reg!($self, CPSR) >> (Flag::$flag as u32)) > 0
+    };
+}
+
+macro_rules! set_flag {
+    ($self:ident, $flag:ident, $value:expr) => {
+        if ($value as bool) {
+            reg!($self, CPSR) |= Flag::$flag as u32;
+        } else {
+            reg!($self, CPSR) &= !(Flag::$flag as u32);
+        }
+    };
+}
+
+macro_rules! set_zn_flag {
+    ($self:ident, $value:expr) => {
+        let v = $value;
+        set_flag!($self, Z, v == 0);
+        set_flag!($self, N, (v & 0x80000000) > 0);
+    };
+}
+
 pub struct VM<'a> {
     registers: [u32; Register::CountMark as usize],
     program: &'a [Instruction],
@@ -223,31 +256,30 @@ impl<'a> VM<'a> {
     where
         F: FnMut(&mut Self, i32) + 'static,
     {
-        self.registers[Register::PC as usize] = 0;
+        reg!(self, PC) = 0;
 
         loop {
-            let instruction = &self.program[self.registers[Register::PC as usize] as usize];
+            let instruction = &self.program[reg!(self, PC) as usize];
 
             match instruction {
                 Instruction::ADR(reg, offset) => {
-                    self.registers[*reg as usize] =
-                        (self.registers[Register::PC as usize] as i32 + *offset) as u32;
+                    reg!(self, *reg) = (reg!(self, PC) as i32 + *offset) as u32;
                 }
                 Instruction::LOAD(reg, addr) => {
                     let value = addr.load(self);
-                    self.registers[*reg as usize] = value;
-                    // TODO: Set N, Z flag
+                    reg!(self, *reg) = value;
+                    set_zn_flag!(self, value);
                 }
                 Instruction::STORE(reg, addr) => {
-                    self.heap[self.registers[*reg as usize] as usize] = addr.load(self);
+                    self.heap[reg!(self, *reg) as usize] = addr.load(self);
                 }
                 Instruction::PUSH(addr) => {
                     self.stack.push(addr.load(self));
                 }
                 Instruction::POP(reg) => {
                     let value = self.stack.pop().unwrap();
-                    self.registers[*reg as usize] = value;
-                    // TODO: Set N, Z flag
+                    reg!(self, *reg) = value;
+                    set_zn_flag!(self, value);
                 }
                 Instruction::ADD(_, _) => {}
                 Instruction::SUB(_, _) => {}
@@ -262,26 +294,36 @@ impl<'a> VM<'a> {
                 Instruction::LSR(_, _) => {}
                 Instruction::ASR(_, _) => {}
                 Instruction::CMP(_, _) => {}
-                Instruction::JMP(_) => {}
-                Instruction::JE(_) => {}
+                Instruction::JMP(addr) => {
+                    reg!(self, PC) = addr.load(self);
+                    continue;
+                }
+                Instruction::JE(addr) => {
+                    if flag!(self, Z) {
+                        reg!(self, PC) = addr.load(self);
+                        continue;
+                    }
+                }
                 Instruction::JNE(_) => {}
                 Instruction::JG(_) => {}
                 Instruction::JGE(_) => {}
                 Instruction::JL(_) => {}
                 Instruction::JLE(_) => {}
                 Instruction::CALL(addr) => {
-                    let ret_addr = self.registers[Register::PC as usize] + 1;
+                    let ret_addr = reg!(self, PC) + 1;
                     self.stack.push(ret_addr);
-                    self.registers[Register::PC as usize] = addr.load(self);
+
+                    reg!(self, PC) = addr.load(self);
+                    continue;
                 }
                 Instruction::RET => {
-                    self.registers[Register::PC as usize] = self.stack.pop().unwrap();
+                    reg!(self, PC) = self.stack.pop().unwrap();
                     continue;
                 }
                 Instruction::SVC(v) => (svc)(self, *v),
             }
 
-            self.registers[Register::PC as usize] += 1;
+            reg!(self, PC) += 1;
         }
     }
 }
