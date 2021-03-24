@@ -774,6 +774,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "game-server"
+version = "0.1.0"
+dependencies = [
+ "actix",
+ "actix-files",
+ "actix-web",
+ "actix-web-actors",
+ "bytes 0.5.6",
+ "chrono",
+ "fern",
+ "log",
+]
+
+[[package]]
 name = "generic-array"
 version = "0.14.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1423,20 +1437,6 @@ dependencies = [
  "itoa",
  "ryu",
  "serde",
-]
-
-[[package]]
-name = "server"
-version = "0.1.0"
-dependencies = [
- "actix",
- "actix-files",
- "actix-web",
- "actix-web-actors",
- "bytes 0.5.6",
- "chrono",
- "fern",
- "log",
 ]
 
 [[package]]
