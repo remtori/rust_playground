@@ -1,0 +1,16 @@
+extends:
+  - 'eslint:recommended'
+  - 'prettier'
+plugins:
+  - prettier
+  - '@typescript-eslint'
+rules:
+  no-empty:
+    - error
+    - allowEmptyCatch: true
+  linebreak-style:
+    - error
+    - unix
+  'prettier/prettier':
+    - error
+  '@typescript-eslint/ban-ts-comment': off

@@ -1,4 +1,6 @@
 .vscode
 
+/client/dist
+/client/node_modules
 /server/target
 /server/logs

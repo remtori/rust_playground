@@ -1,10 +1,10 @@
-const canvas = document.getElementById('screen');
-const context = canvas.getContext('2d');
+import { remote } from './network';
+
+const canvas = document.getElementById('screen') as HTMLCanvasElement;
+const context = canvas.getContext('2d')!;
 
 context.fillStyle = '#fff';
 context.fillRect(0, 0, canvas.width, canvas.height);
-
-const remote = new WebSocket(`ws://${location.host}/ws/`);
 
 let isPressed = false;
 canvas.addEventListener('mousedown', e => {
@@ -30,7 +30,7 @@ canvas.addEventListener('mousemove', e => {
 });
 
 remote.onmessage = e => {
-    e.data.arrayBuffer().then(buffer => {
+    e.data.arrayBuffer().then((buffer: ArrayBuffer) => {
         const view = new Uint32Array(buffer);
         context.fillStyle = '#f00';
         context.fillRect(view[0], view[1], 2, 2);

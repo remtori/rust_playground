@@ -1,0 +1,15 @@
+{
+  "name": "game-client",
+  "version": "0.0.1",
+  "scripts": {
+    "start": "spack",
+    "build": "spack"
+  },
+  "author": "remtori <lqvu99@gmail.com>",
+  "license": "MIT",
+  "devDependencies": {
+    "@swc/cli": "^0.1.35",
+    "@swc/core": "^1.2.50",
+    "chokidar": "^3.5.1"
+  }
+}
