@@ -1,27 +1,37 @@
+use crate::{
+    context::{Context, Language},
+    error::Result,
+    parser::Parser,
+};
+
+mod context;
 mod error;
 mod lexer;
+mod parser;
 mod token;
 
-fn main() {
+fn main() -> Result<()> {
     let source = r#"
-        message Ping {
+        /// Send ping message to check if the other party is alive
+        struct Ping {
+            /// Sender timestamp
             unixTime: u32,
         }
 
-        message Pong : Ping {}
+        // comment break stuff
+        struct Pong : Ping {}
     "#;
 
-    let mut lexer = lexer::Lexer::new(source);
+    let mut context = Context::new();
 
-    loop {
-        match lexer.next_token() {
-            Ok(token) => {
-                println!("{:?}", token);
-            }
-            Err(err) => {
-                println!("{}", err);
-                break;
-            }
-        }
-    }
+    let mut parser = Parser::new(source);
+    parser.parse_schema(&mut context)?;
+
+    println!("{:#?}", context);
+
+    context.validate()?;
+
+    context.export(Language::Rust, &mut std::io::stdout());
+
+    Ok(())
 }
