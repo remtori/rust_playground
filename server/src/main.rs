@@ -24,7 +24,7 @@ async fn main() -> std::io::Result<()> {
             // websocket
             .route("/ws/", web::get().to(ws_session::route))
             // static resources
-            .service(fs::Files::new("/", "../client").index_file("index.html"))
+            .service(fs::Files::new("/", "./client").index_file("index.html"))
     })
     .bind("127.0.0.1:8008")?
     .run()
