@@ -9,14 +9,19 @@ pub enum Language {
 }
 
 pub trait Node: std::fmt::Debug {
+    fn is_builtin(&self) -> bool {
+        false
+    }
+
     fn identifier(&self) -> &str;
 
     fn serialize(
         &self,
-        context: &Context,
         writer: &mut dyn std::io::Write,
         lang: Language,
     ) -> std::result::Result<(), std::io::Error>;
+
+    fn validate(&self, require_ident: &mut dyn FnMut(String));
 }
 
 #[derive(Debug, Default)]
@@ -36,11 +41,18 @@ impl Context {
         self.declared_type.insert(ident.to_owned(), boxed_node);
     }
 
-    pub fn require(&mut self, ident: &str) {
-        self.required_ident.insert(ident.to_owned());
-    }
+    pub fn validate(&mut self) -> Result<()> {
+        {
+            let required = &mut self.required_ident;
+            let mut cb = |ident| {
+                required.insert(ident);
+            };
 
-    pub fn validate(&self) -> Result<()> {
+            for typ in self.declared_type.values() {
+                (*typ).validate(&mut cb);
+            }
+        }
+
         let mut required = Vec::new();
 
         let mut error_buffer_capacity = 128;
@@ -56,6 +68,7 @@ impl Context {
 
             msg.push_str("Use of undeclared type: [\n");
             for str in required {
+                msg.push_str("    ");
                 msg.push_str(str);
                 msg.push_str(",\n");
             }
@@ -73,15 +86,15 @@ impl Context {
         writer: &mut T,
     ) -> std::result::Result<(), std::io::Error> {
         for (_, node) in self.declared_type.iter() {
-            (*node).serialize(self, writer, lang)?;
+            (*node).serialize(writer, lang)?;
         }
 
         Ok(())
     }
 
-    pub fn get(&self, ident: &str) -> Option<&dyn Node> {
-        self.declared_type.get(ident).map(|b| &**b)
-    }
+    // pub fn get(&self, ident: &str) -> Option<&dyn Node> {
+    //     self.declared_type.get(ident).map(|b| &**b)
+    // }
 }
 
 #[derive(Debug)]
@@ -98,7 +111,6 @@ impl Node for StructNode {
 
     fn serialize(
         &self,
-        context: &Context,
         writer: &mut dyn std::io::Write,
         lang: Language,
     ) -> std::result::Result<(), std::io::Error> {
@@ -107,6 +119,8 @@ impl Node for StructNode {
                 writer.write_all(b"struct ")?;
                 writer.write_all(self.identifier.as_bytes())?;
                 if !self.extends.is_empty() {
+                    writer.write_all(b": ")?;
+
                     let mut first = true;
                     for extend in &self.extends {
                         if !first {
@@ -123,7 +137,7 @@ impl Node for StructNode {
                     writer.write_all(b"\t")?;
                     writer.write_all(field.as_bytes())?;
                     writer.write_all(b": ")?;
-                    (*value).serialize(context, writer, lang)?;
+                    (*value).serialize(writer, lang)?;
                     writer.write_all(b",\n")?;
                 }
                 writer.write_all(b"}\n")?;
@@ -132,6 +146,18 @@ impl Node for StructNode {
         }
 
         Ok(())
+    }
+
+    fn validate(&self, require: &mut dyn FnMut(String)) {
+        for extend in &self.extends {
+            require(extend.clone())
+        }
+
+        for typ in self.fields.values() {
+            if !(*typ).is_builtin() {
+                require((*typ).identifier().to_owned())
+            }
+        }
     }
 }
 
@@ -148,14 +174,14 @@ impl Node for AliasNode {
 
     fn serialize(
         &self,
-        context: &Context,
         writer: &mut dyn std::io::Write,
-        lang: Language,
+        _lang: Language,
     ) -> std::result::Result<(), std::io::Error> {
-        context
-            .get(&self.real_ident)
-            .unwrap()
-            .serialize(context, writer, lang)
+        writer.write_all(self.identifier.as_bytes())
+    }
+
+    fn validate(&self, require: &mut dyn FnMut(String)) {
+        require(self.real_ident.clone());
     }
 }
 
@@ -171,14 +197,14 @@ impl Node for IdentifierNode {
 
     fn serialize(
         &self,
-        context: &Context,
         writer: &mut dyn std::io::Write,
-        lang: Language,
+        _lang: Language,
     ) -> std::result::Result<(), std::io::Error> {
-        context
-            .get(&self.identifier)
-            .unwrap()
-            .serialize(context, writer, lang)
+        writer.write_all(self.identifier.as_bytes())
+    }
+
+    fn validate(&self, require: &mut dyn FnMut(String)) {
+        require(self.identifier.clone())
     }
 }
 
@@ -202,13 +228,16 @@ pub enum PrimitiveNode {
 }
 
 impl Node for PrimitiveNode {
+    fn is_builtin(&self) -> bool {
+        true
+    }
+
     fn identifier(&self) -> &str {
         unreachable!()
     }
 
     fn serialize(
         &self,
-        _context: &Context,
         writer: &mut dyn std::io::Write,
         lang: Language,
     ) -> std::result::Result<(), std::io::Error> {
@@ -246,6 +275,8 @@ impl Node for PrimitiveNode {
 
         Ok(())
     }
+
+    fn validate(&self, _: &mut dyn FnMut(String)) {}
 }
 
 #[derive(Debug)]
@@ -254,20 +285,23 @@ pub enum NativeNode {
 }
 
 impl Node for NativeNode {
+    fn is_builtin(&self) -> bool {
+        true
+    }
+
     fn identifier(&self) -> &str {
         unreachable!()
     }
 
     fn serialize(
         &self,
-        context: &Context,
         writer: &mut dyn std::io::Write,
         lang: Language,
     ) -> std::result::Result<(), std::io::Error> {
         match (&self, lang) {
             (NativeNode::Option(node), Language::Rust) => {
                 writer.write_all(b"Option<")?;
-                (*node).serialize(context, writer, lang)?;
+                (*node).serialize(writer, lang)?;
                 writer.write_all(b">")?;
             }
             (NativeNode::Option(_), Language::Typescript) => {}
@@ -275,4 +309,6 @@ impl Node for NativeNode {
 
         Ok(())
     }
+
+    fn validate(&self, _: &mut dyn FnMut(String)) {}
 }

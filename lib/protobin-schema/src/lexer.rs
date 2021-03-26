@@ -99,7 +99,7 @@ impl<'s> Lexer<'s> {
             }
         } else if self.current_char == '\0' {
             if self.previous_token_kind == TokenKind::Eof {
-                return Err(Error::Message("EOF".to_owned()));
+                return Err(Error::message("EOF"));
             }
 
             TokenKind::Eof
@@ -145,7 +145,7 @@ impl<'s> Lexer<'s> {
         }
 
         if self.position > self.source.len() {
-            return Err(Error::Message("EOF".to_owned()));
+            return Err(Error::message("EOF"));
         }
 
         if self.is_line_terminator() {

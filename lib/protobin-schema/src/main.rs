@@ -10,7 +10,7 @@ mod lexer;
 mod parser;
 mod token;
 
-fn main() -> Result<()> {
+fn exec() -> Result<()> {
     let source = r#"
         /// Send ping message to check if the other party is alive
         struct Ping {
@@ -20,6 +20,8 @@ fn main() -> Result<()> {
 
         // comment break stuff
         struct Pong : Ping {}
+
+        struct A: B{}
     "#;
 
     let mut context = Context::new();
@@ -31,7 +33,13 @@ fn main() -> Result<()> {
 
     context.validate()?;
 
-    context.export(Language::Rust, &mut std::io::stdout());
+    context.export(Language::Rust, &mut std::io::stdout())?;
 
     Ok(())
+}
+
+fn main() {
+    if let Err(err) = exec() {
+        println!("{}", err);
+    }
 }

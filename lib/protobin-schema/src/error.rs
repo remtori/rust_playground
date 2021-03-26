@@ -5,6 +5,7 @@ pub enum Error {
     Parse(ParseError),
     Lexical(LexicalError),
     Message(String),
+    Io(std::io::Error),
 }
 
 impl std::fmt::Display for Error {
@@ -13,6 +14,7 @@ impl std::fmt::Display for Error {
             Error::Parse(err) => write!(f, "ParseError: {:?}", err),
             Error::Lexical(err) => write!(f, "LexicalError: {:?}", err),
             Error::Message(err) => f.write_str(err),
+            Error::Io(e) => std::fmt::Display::fmt(e, f),
         }
     }
 }
@@ -28,6 +30,12 @@ impl From<ParseError> for Error {
 impl From<LexicalError> for Error {
     fn from(e: LexicalError) -> Self {
         Error::Lexical(e)
+    }
+}
+
+impl From<std::io::Error> for Error {
+    fn from(e: std::io::Error) -> Self {
+        Error::Io(e)
     }
 }
 
