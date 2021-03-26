@@ -2,7 +2,7 @@
 pub enum TokenKind {
     Invalid,
     Eof,
-    Message,
+    Struct,
     Identifier,
     Comment,
 

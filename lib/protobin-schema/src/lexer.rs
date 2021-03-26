@@ -193,7 +193,7 @@ impl<'s> Lexer<'s> {
 lazy_static::lazy_static! {
     static ref KEY_WORDS: HashMap<&'static str, TokenKind> = {
         let mut m = HashMap::new();
-        m.insert("message", TokenKind::Message);
+        m.insert("struct", TokenKind::Struct);
         m
     };
 
