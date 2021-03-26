@@ -4,7 +4,6 @@ pub enum TokenKind {
     Eof,
     Struct,
     Identifier,
-    Comment,
 
     // Punctuations
     BracketClose,
@@ -33,6 +32,7 @@ pub struct Token<'s> {
     pub kind: TokenKind,
     pub value: &'s str,
     pub trivia: &'s str,
+    pub doc_comment: &'s str,
     pub line: u32,
     pub column: u32,
 }
