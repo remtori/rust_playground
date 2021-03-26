@@ -31,9 +31,44 @@ impl<'s> Lexer<'s> {
     pub fn next_token(&mut self) -> Result<Token<'s>> {
         let trivia_start = self.position - 1;
 
-        // Consume white space
+        // Consume white space + non-doc comment
         loop {
             if self.is_line_terminator() {
+                self.consume()?;
+                while !self.is_eof() && self.is_line_terminator() {
+                    self.consume()?;
+                }
+            } else if self.current_char.is_whitespace() {
+                self.consume()?;
+                while !self.is_eof() && self.current_char.is_whitespace() {
+                    self.consume()?;
+                }
+            } else if self.is_line_comment_start() {
+                self.consume()?;
+                while !self.is_eof() && !self.is_line_terminator() {
+                    self.consume()?;
+                }
+            } else if self.is_block_comment_start() {
+                self.consume()?;
+                while !self.is_eof() && !self.is_block_comment_end() {
+                    self.consume()?;
+                }
+
+                self.consume()?; // consume '*'
+                self.consume()?; // consume '/'
+            } else {
+                break;
+            }
+        }
+
+        let doc_start = self.position - 1;
+        loop {
+            if self.is_doc_comment_start() {
+                self.consume()?;
+                while !self.is_eof() && !self.is_line_terminator() {
+                    self.consume()?;
+                }
+            } else if self.is_line_terminator() {
                 self.consume()?;
                 while !self.is_eof() && self.is_line_terminator() {
                     self.consume()?;
@@ -51,24 +86,7 @@ impl<'s> Lexer<'s> {
         let value_start = self.position - 1;
         let value_start_line = self.line;
         let value_start_column = self.column;
-        let kind = if self.is_line_comment_start() {
-            self.consume()?;
-            while !self.is_eof() && self.is_line_terminator() {
-                self.consume()?;
-            }
-
-            TokenKind::Comment
-        } else if self.is_block_comment_start() {
-            self.consume()?;
-            while !self.is_eof() || self.is_block_comment_end() {
-                self.consume()?;
-            }
-
-            self.consume()?; // consume '*'
-            self.consume()?; // consume '/'
-
-            TokenKind::Comment
-        } else if self.is_identifier_start() {
+        let kind = if self.is_identifier_start() {
             self.consume()?;
             while self.is_identifier_body() {
                 self.consume()?;
@@ -81,7 +99,7 @@ impl<'s> Lexer<'s> {
             }
         } else if self.current_char == '\0' {
             if self.previous_token_kind == TokenKind::Eof {
-                return Err(LexicalError {}.into());
+                return Err(Error::Message("EOF".to_owned()));
             }
 
             TokenKind::Eof
@@ -89,7 +107,10 @@ impl<'s> Lexer<'s> {
             self.consume()?;
             *tk
         } else {
-            return Err(LexicalError {}.into());
+            return Err(Error::Message(format!(
+                "unknown char _{}_",
+                self.current_char
+            )));
         };
 
         self.previous_token_kind = kind;
@@ -99,13 +120,15 @@ impl<'s> Lexer<'s> {
                 kind,
                 trivia: "",
                 value: "",
+                doc_comment: "",
                 line: value_start_line,
                 column: value_start_column,
             })
         } else {
             Ok(Token {
                 kind,
-                trivia: &self.source[trivia_start..value_start],
+                trivia: &self.source[trivia_start..doc_start],
+                doc_comment: &self.source[doc_start..value_start],
                 value: &self.source[value_start..self.position - 1],
                 line: value_start_line,
                 column: value_start_column,
@@ -122,7 +145,7 @@ impl<'s> Lexer<'s> {
         }
 
         if self.position > self.source.len() {
-            return Err(LexicalError {}.into());
+            return Err(Error::Message("EOF".to_owned()));
         }
 
         if self.is_line_terminator() {
@@ -152,7 +175,11 @@ impl<'s> Lexer<'s> {
     }
 
     fn is_line_comment_start(&self) -> bool {
-        self.match_2('/', '/')
+        self.match_2('/', '/') && !self.is_doc_comment_start()
+    }
+
+    fn is_doc_comment_start(&self) -> bool {
+        self.match_3('/', '/', '/')
     }
 
     fn is_block_comment_start(&self) -> bool {
@@ -175,11 +202,16 @@ impl<'s> Lexer<'s> {
     }
 
     fn match_2(&self, c1: char, c2: char) -> bool {
-        if self.position >= self.source.len() {
-            false
-        } else {
-            self.current_char == c1 && self.unchecked_peek_at_offset(0) == c2
-        }
+        self.position < self.source.len()
+            && self.current_char == c1
+            && self.unchecked_peek_at_offset(0) == c2
+    }
+
+    fn match_3(&self, c1: char, c2: char, c3: char) -> bool {
+        self.position + 1 < self.source.len()
+            && self.current_char == c1
+            && self.unchecked_peek_at_offset(0) == c2
+            && self.unchecked_peek_at_offset(1) == c3
     }
 
     fn unchecked_peek_at_offset(&self, offset: isize) -> char {
