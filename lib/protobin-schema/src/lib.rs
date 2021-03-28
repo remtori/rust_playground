@@ -32,14 +32,16 @@ pub fn derive_message(input: TokenStream) -> TokenStream {
                 protobin::WireType::VarLen
             }
 
-            fn serialize(&self, serializer: &mut Serializer) -> Result<()> {
+            fn serialize(&self, serializer: &mut protobin::Serializer) -> protobin::Result<()> {
+                use protobin::*;
                 #serialize_body
                 Ok(())
             }
         }
 
         impl #impl_generics protobin::Deserialize for #name #ty_generics #where_clause {
-            fn deserialize(deserializer: &mut Deserializer) -> Result<Self> {
+            fn deserialize(deserializer: &mut protobin::Deserializer) -> protobin::Result<Self> {
+                use protobin::*;
                 #deserialize_body
             }
         }
