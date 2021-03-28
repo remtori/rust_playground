@@ -3,6 +3,8 @@ use quote::{quote, quote_spanned};
 use syn::spanned::Spanned;
 use syn::{parse2, parse_quote, Data, DeriveInput, Error, Fields, GenericParam, Generics};
 
+pub use proc_macro2;
+
 pub fn derive_message(input: TokenStream) -> TokenStream {
     let input = match parse2::<DeriveInput>(input) {
         Ok(data) => data,
