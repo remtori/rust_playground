@@ -1,7 +1,8 @@
-use proc_macro2::TokenStream;
+use proc_macro2::{Span, TokenStream};
 use quote::{quote, quote_spanned};
-use syn::spanned::Spanned;
-use syn::{parse2, parse_quote, Data, DeriveInput, Error, Fields, GenericParam, Generics};
+use syn::{
+    parse2, parse_quote, spanned::Spanned, Data, DeriveInput, Error, Fields, GenericParam, Generics,
+};
 
 pub use proc_macro2;
 
@@ -17,7 +18,7 @@ pub fn derive_message(input: TokenStream) -> TokenStream {
 
     let serialize_body = match serialize_impl(&input.data) {
         Ok(data) => data,
-        Err(err) => return Error::new(name.span(), err).to_compile_error(),
+        Err(err) => return Error::new(Span::call_site(), err).to_compile_error(),
     };
 
     quote! {
@@ -77,6 +78,6 @@ fn serialize_impl(data: &Data) -> Result<TokenStream, &'static str> {
         Data::Enum(_) => {
             todo!()
         }
-        Data::Union(_) => Err("expected struct or enum"),
+        Data::Union(_) => Err("this trait cannot be derived for unions"),
     }
 }
