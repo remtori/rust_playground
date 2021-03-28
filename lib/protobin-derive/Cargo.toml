@@ -1,0 +1,11 @@
+[package]
+name = "protobin-derive"
+version = "0.1.0"
+authors = ["remtori <lqvu99@gmail.com>"]
+edition = "2018"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+protobin-schema = { path = "../protobin-schema" }
