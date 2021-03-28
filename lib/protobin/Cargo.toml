@@ -7,3 +7,4 @@ license = "MIT"
 
 [dependencies]
 bytes = "0.5.6"
+protobin-derive = { path = "../protobin-derive" }

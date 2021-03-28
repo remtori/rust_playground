@@ -6,6 +6,8 @@ pub use deserializer::*;
 pub use error::*;
 pub use serializer::*;
 
+pub use protobin_derive::Message;
+
 pub enum WireType {
     VarInt = 0,
     VarUInt = 1,
