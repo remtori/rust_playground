@@ -21,6 +21,11 @@ pub fn derive_message(input: TokenStream) -> TokenStream {
         Err(err) => return Error::new(Span::call_site(), err).to_compile_error(),
     };
 
+    let deserialize_body = match deserialize_impl(&input.data) {
+        Ok(data) => data,
+        Err(err) => return Error::new(Span::call_site(), err).to_compile_error(),
+    };
+
     quote! {
         impl #impl_generics protobin::Serialize for #name #ty_generics #where_clause {
             fn wire_type(&self) -> protobin::WireType {
@@ -35,7 +40,7 @@ pub fn derive_message(input: TokenStream) -> TokenStream {
 
         impl #impl_generics protobin::Deserialize for #name #ty_generics #where_clause {
             fn deserialize(deserializer: &mut Deserializer) -> Result<Self> {
-                todo!()
+                #deserialize_body
             }
         }
     }
@@ -71,6 +76,36 @@ fn serialize_impl(data: &Data) -> Result<TokenStream, &'static str> {
                 Ok(quote! {
                     serializer.write_u32(#len)?;
                     #(#recurse)*
+                })
+            }
+            Fields::Unnamed(_) | Fields::Unit => Err("expected struct with named field"),
+        },
+        Data::Enum(_) => {
+            todo!()
+        }
+        Data::Union(_) => Err("this trait cannot be derived for unions"),
+    }
+}
+
+fn deserialize_impl(data: &Data) -> Result<TokenStream, &'static str> {
+    match data {
+        Data::Struct(struct_data) => match &struct_data.fields {
+            Fields::Named(fields) => {
+                let recurse = fields.named.iter().map(|field| {
+                    let name = &field.ident;
+                    let ty = &field.ty;
+
+                    quote_spanned! { field.span() =>
+                        #name: { let _field_meta = deserializer.read_field()?; #ty::deserialize(deserializer)? },
+                    }
+                });
+
+                Ok(quote! {
+                    let _struct_field_count = deserializer.read_u32()?;
+
+                    Ok(Self {
+                        #(#recurse)*
+                    })
                 })
             }
             Fields::Unnamed(_) | Fields::Unit => Err("expected struct with named field"),
