@@ -24,6 +24,20 @@ pub struct Field {
     ty: Type,
 }
 
+impl Field {
+    pub fn index(&self) -> u32 {
+        self.idx
+    }
+
+    pub fn name(&self) -> &str {
+        &self.ident
+    }
+
+    pub fn ty(&self) -> &Type {
+        &self.ty
+    }
+}
+
 #[derive(Debug)]
 pub struct Message {
     id: u32,
@@ -38,6 +52,18 @@ fn new_id() -> u32 {
 }
 
 impl Message {
+    pub fn id(&self) -> u32 {
+        self.id
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn fields(&self) -> &[Field] {
+        &self.fields
+    }
+
     pub fn parse(input: &syn::ItemStruct) -> syn::Result<Self> {
         let mut out_fields = Vec::new();
 
