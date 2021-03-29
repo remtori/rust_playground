@@ -1,11 +1,11 @@
-use quote::ToTokens;
-use syn::{parenthesized, parse::Parse, parse2, punctuated::Punctuated, Item, Result, Token, Type};
+use syn::{
+    parenthesized, parse::Parse, punctuated::Punctuated, Item, Meta, NestedMeta, Path, Result,
+    Token, Type,
+};
 
 use crate::message::Message;
 
-pub fn parse(source: &str) -> Result<Vec<Message>> {
-    let mut out = Vec::new();
-
+pub fn parse(source: &str, out: &mut Vec<Message>) -> Result<()> {
     // Parse the whole file
     let file = syn::parse_file(source)?;
 
@@ -15,19 +15,17 @@ pub fn parse(source: &str) -> Result<Vec<Message>> {
         if let Item::Struct(struct_data) = item {
             // Check the attributes #[derive(Message)]
             for attr in struct_data.attrs.iter() {
-                if_chain::if_chain! {
-                    if let Some(ident) = attr.path.get_ident();
-                    if ident.eq("derive");
-                    then {
-                        for ident in parse2::<DeriveAttr>(attr.tokens.to_token_stream())?.0 {
-                            if_chain::if_chain! {
-                                if let Type::Path(p) = ident;
-                                if let Some(maybe_msg) = p.path.get_ident();
-                                if maybe_msg.eq("Message");
-                                then {
-                                    out.push(Message::parse(struct_data)?);
-                                }
+                let meta = attr.parse_meta().unwrap();
+                if meta.path().is_ident("derive") {
+                    if let Meta::List(meta_list) = &meta {
+                        if meta_list.nested.iter().any(|c| {
+                            if let NestedMeta::Meta(meta) = c {
+                                meta.path().is_ident("Message")
+                            } else {
+                                false
                             }
+                        }) {
+                            out.push(Message::parse(struct_data)?);
                         }
                     }
                 }
@@ -35,7 +33,7 @@ pub fn parse(source: &str) -> Result<Vec<Message>> {
         }
     }
 
-    Ok(out)
+    Ok(())
 }
 
 struct DeriveAttr(Punctuated<Type, Token![,]>);
