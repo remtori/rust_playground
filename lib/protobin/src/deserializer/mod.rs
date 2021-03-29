@@ -21,6 +21,10 @@ pub struct Deserializer<'a> {
 }
 
 impl<'a> Deserializer<'a> {
+    pub fn new(buffer: &'a [u8]) -> Deserializer<'a> {
+        Deserializer { buffer }
+    }
+
     pub fn read_field(&mut self) -> Result<(u32, WireType)> {
         let encoded = self.read_u32()?;
         Ok((encoded >> 3, WireType::from(encoded & 7)))
