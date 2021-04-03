@@ -1,8 +1,7 @@
-mod derive;
+mod exporter;
 mod message;
 mod parse;
 
-pub use derive::derive_message;
 pub use proc_macro2;
 
 pub use message::*;
