@@ -1,7 +1,2 @@
 [workspace]
-members = [
-    "server",
-    "lib/protobin",
-    "lib/protobin-derive",
-    "lib/protobin-schema",
-]
+members = [ "server" ]
