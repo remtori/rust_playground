@@ -1,15 +1,11 @@
 use std::collections::HashMap;
 
-use crate::{
-    context::{Context, IdentifierNode, NativeNode, Node, PrimitiveNode, StructNode},
-    error::{Error, ParseError, Result},
-    lexer::Lexer,
-    token::{Token, TokenKind},
-};
+use crate::{context::{Context, FieldDeclaration, Message, TypeDeclaration}, error::{Error, ParseError, Result}, lexer::Lexer, token::{Token, TokenKind}};
 
 pub struct Parser<'s> {
     lexer: Lexer<'s>,
     current_token: Token<'s>,
+    pub(crate) context: Context<'s>,
 }
 
 impl<'s> Parser<'s> {
@@ -19,31 +15,33 @@ impl<'s> Parser<'s> {
 
         Parser {
             lexer,
+            context: Default::default(),
             current_token,
         }
     }
 
-    pub fn parse_schema(&mut self, context: &mut Context) -> Result<()> {
+    pub fn parse_schema(&mut self) -> Result<()> {
         loop {
             if self.is_kind(TokenKind::Eof) {
                 break Ok(());
             }
 
-            context.register(self.parse_struct()?);
+            let msg = self.parse_message()?;
+            self.context.register(msg);
         }
     }
 
-    fn parse_struct(&mut self) -> Result<StructNode> {
+    fn parse_message(&mut self) -> Result<Message<'s>> {
         self.consume_kind(TokenKind::Message)?;
 
-        let identifier = self.consume_kind(TokenKind::Identifier)?.value.to_owned();
+        let identifier = self.parse_type()?;
 
         let mut extends = Vec::new();
         if self.is_kind(TokenKind::Colon) {
             self.consume()?;
 
             loop {
-                extends.push(self.consume_kind(TokenKind::Identifier)?.value.to_owned());
+                extends.push(self.consume_kind(TokenKind::Identifier)?.value);
 
                 if self.is_kind(TokenKind::Plus) {
                     self.consume()?;
@@ -53,7 +51,7 @@ impl<'s> Parser<'s> {
             }
         }
 
-        let mut fields = HashMap::new();
+        let mut fields = Vec::new();
 
         self.consume_kind(TokenKind::CurlyOpen)?;
         loop {
@@ -61,56 +59,65 @@ impl<'s> Parser<'s> {
                 break;
             }
 
-            let field_name = self.consume_kind(TokenKind::Identifier)?.value.to_owned();
+            let field_name = self.consume_kind(TokenKind::Identifier)?.value;
 
             self.consume_kind(TokenKind::Colon)?;
 
-            fields.insert(field_name, self.parse_type()?);
+            let ty = self.parse_type()?;
 
-            if self.is_kind(TokenKind::Comma) {
+            self.consume_kind(TokenKind::Equals)?;
+            
+            let id = self.consume_kind(TokenKind::IntegerLiteral)?;
+
+            fields.push(FieldDeclaration { 
+                id: id.parse::<u32>()?,
+                ident: field_name, 
+                ty,
+            });
+
+            if self.is_kind(TokenKind::Semicolon) {
                 self.consume()?;
-            } else {
+            }
+            
+            if self.is_kind(TokenKind::CurlyClose) {
                 break;
             }
         }
         self.consume_kind(TokenKind::CurlyClose)?;
 
-        Ok(StructNode {
+        Ok(Message {
             identifier,
             extends,
             fields,
         })
     }
 
-    fn parse_type(&mut self) -> Result<Box<dyn Node>> {
-        let token = self.consume_kind(TokenKind::Identifier)?;
+    fn parse_type(&mut self) -> Result<TypeDeclaration<'s>> {
+        let ident = self.consume_kind(TokenKind::Identifier)?;
+        let mut generics = Vec::new();
 
-        let boxed: Box<dyn Node> = match token.value {
-            "u8" => Box::new(PrimitiveNode::U8),
-            "u16" => Box::new(PrimitiveNode::U16),
-            "u32" => Box::new(PrimitiveNode::U32),
-            "u64" => Box::new(PrimitiveNode::U64),
-            "i8" => Box::new(PrimitiveNode::I8),
-            "i16" => Box::new(PrimitiveNode::I16),
-            "i32" => Box::new(PrimitiveNode::I32),
-            "i64" => Box::new(PrimitiveNode::I64),
-            "f32" => Box::new(PrimitiveNode::F32),
-            "f64" => Box::new(PrimitiveNode::F64),
-            "string" => Box::new(PrimitiveNode::String),
-            "char" => Box::new(PrimitiveNode::Char),
-            "_" => Box::new(PrimitiveNode::Unit),
-            "Option" => Box::new({
-                self.consume_kind(TokenKind::LessThan)?;
-                let node = NativeNode::Option(self.parse_type()?);
-                self.consume_kind(TokenKind::GreaterThan)?;
-                node
-            }),
-            _ => Box::new(IdentifierNode {
-                identifier: token.value.to_owned(),
-            }),
-        };
+        if self.is_kind(TokenKind::LessThan) {
+            self.consume()?;
 
-        Ok(boxed)
+            loop {
+                let ty = self.consume_kind(TokenKind::Identifier)?;
+                generics.push(ty.value);
+
+                if self.is_kind(TokenKind::Comma) {
+                    self.consume()?;
+                } else {
+                    break;
+                }
+            }
+
+            self.consume_kind(TokenKind::GreaterThan)?;
+        }
+        
+
+        Ok(TypeDeclaration {
+            ident: ident.value,
+            generics
+        })
     }
 
     fn consume(&mut self) -> Result<Token<'s>> {
