@@ -97,6 +97,13 @@ impl<'s> Lexer<'s> {
             } else {
                 TokenKind::Identifier
             }
+        } else if self.current_char.is_digit(10) {
+            self.consume()?;
+            while self.current_char.is_digit(10) {
+                self.consume()?;
+            }
+
+            TokenKind::IntegerLiteral
         } else if self.current_char == '\0' {
             if self.previous_token_kind == TokenKind::Eof {
                 return Err(Error::message("EOF"));
@@ -115,25 +122,14 @@ impl<'s> Lexer<'s> {
 
         self.previous_token_kind = kind;
 
-        if trivia_start == value_start || value_start == self.position - 1 {
-            Ok(Token {
-                kind,
-                trivia: "",
-                value: "",
-                doc_comment: "",
-                line: value_start_line,
-                column: value_start_column,
-            })
-        } else {
-            Ok(Token {
-                kind,
-                trivia: &self.source[trivia_start..doc_start],
-                doc_comment: &self.source[doc_start..value_start],
-                value: &self.source[value_start..self.position - 1],
-                line: value_start_line,
-                column: value_start_column,
-            })
-        }
+        Ok(Token {
+            kind,
+            trivia: &self.source[trivia_start..doc_start],
+            doc_comment: &self.source[doc_start..value_start],
+            value: &self.source[value_start..self.position - 1],
+            line: value_start_line,
+            column: value_start_column,
+        })
     }
 
     fn consume(&mut self) -> Result<()> {
