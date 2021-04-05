@@ -1,6 +1,9 @@
-use std::collections::HashMap;
-
-use crate::{context::{Context, FieldDeclaration, Message, TypeDeclaration}, error::{Error, ParseError, Result}, lexer::Lexer, token::{Token, TokenKind}};
+use crate::{
+    context::{Context, FieldDeclaration, Message, TypeDeclaration}, 
+    error::{Error, ParseError, Result}, 
+    lexer::Lexer, 
+    token::{Token, TokenKind},
+};
 
 pub struct Parser<'s> {
     lexer: Lexer<'s>,
@@ -9,13 +12,13 @@ pub struct Parser<'s> {
 }
 
 impl<'s> Parser<'s> {
-    pub fn new(source: &'s str) -> Parser<'s> {
+    pub fn new(source: &'s str, context: Context<'s>) -> Parser<'s> {
         let mut lexer = Lexer::new(source);
         let current_token = lexer.next_token().unwrap();
 
         Parser {
             lexer,
-            context: Default::default(),
+            context,
             current_token,
         }
     }
@@ -34,7 +37,7 @@ impl<'s> Parser<'s> {
     fn parse_message(&mut self) -> Result<Message<'s>> {
         self.consume_kind(TokenKind::Message)?;
 
-        let identifier = self.parse_type()?;
+        let type_def = self.parse_type()?;
 
         let mut extends = Vec::new();
         if self.is_kind(TokenKind::Colon) {
@@ -75,9 +78,7 @@ impl<'s> Parser<'s> {
                 ty,
             });
 
-            if self.is_kind(TokenKind::Semicolon) {
-                self.consume()?;
-            }
+            self.consume_kind(TokenKind::Semicolon)?;
             
             if self.is_kind(TokenKind::CurlyClose) {
                 break;
@@ -86,7 +87,8 @@ impl<'s> Parser<'s> {
         self.consume_kind(TokenKind::CurlyClose)?;
 
         Ok(Message {
-            identifier,
+            ident: type_def.ident,
+            generics: type_def.generics,
             extends,
             fields,
         })
