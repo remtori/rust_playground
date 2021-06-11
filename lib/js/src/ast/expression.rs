@@ -5,14 +5,18 @@ pub enum Expression {
     BinaryOperation(BinaryOperation),
     Identifier(Identifier),
     Literal(Literal),
+    CallExpression(CallExpression),
+    ObjectExpression(ObjectExpression),
 }
 
 impl ASTNode for Expression {
     fn eval(&mut self, context: &mut Context) -> Result<JsValue> {
         match self {
-            Expression::BinaryOperation(op) => op.eval(context),
-            Expression::Identifier(id) => id.eval(context),
-            Expression::Literal(literal) => literal.eval(context),
+            Expression::BinaryOperation(e) => e.eval(context),
+            Expression::Identifier(e) => e.eval(context),
+            Expression::Literal(e) => e.eval(context),
+            Expression::CallExpression(e) => e.eval(context),
+            Expression::ObjectExpression(e) => e.eval(context),
         }
     }
 }
@@ -369,5 +373,79 @@ impl ASTNode for BinaryOperation {
                 }
             }
         })
+    }
+}
+
+#[derive(Debug)]
+pub struct ObjectExpression(Vec<ObjectProperty>);
+
+impl ObjectExpression {
+    pub fn new(properties: Vec<ObjectProperty>) -> Self {
+        Self(properties)
+    }
+}
+
+impl ASTNode for ObjectExpression {
+    fn eval(&mut self, context: &mut Context) -> Result<JsValue> {
+        todo!()
+    }
+}
+
+#[derive(Debug)]
+pub enum ObjectPropertyKind {
+    KeyValue,
+    Getter,
+    Setter,
+    Spread,
+}
+
+#[derive(Debug)]
+pub struct ObjectProperty {
+    key: Box<Expression>,
+    value: Option<Box<Expression>>,
+    kind: ObjectPropertyKind,
+    is_method: bool,
+}
+
+impl ObjectProperty {
+    pub fn new(
+        key: Expression,
+        value: Option<Expression>,
+        kind: ObjectPropertyKind,
+        is_method: bool,
+    ) -> ObjectProperty {
+        ObjectProperty {
+            key: Box::new(key),
+            value: value.map(Box::new),
+            kind,
+            is_method,
+        }
+    }
+}
+
+impl ASTNode for ObjectProperty {
+    fn eval(&mut self, context: &mut Context) -> Result<JsValue> {
+        todo!()
+    }
+}
+
+#[derive(Debug)]
+pub struct CallExpression {
+    ident: Box<Expression>,
+    args: Vec<Expression>,
+}
+
+impl CallExpression {
+    pub fn new(ident: Expression, args: Vec<Expression>) -> CallExpression {
+        CallExpression {
+            ident: Box::new(ident),
+            args,
+        }
+    }
+}
+
+impl ASTNode for CallExpression {
+    fn eval(&mut self, context: &mut Context) -> Result<JsValue> {
+        todo!()
     }
 }

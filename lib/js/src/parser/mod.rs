@@ -4,12 +4,13 @@ pub mod token;
 
 use core::panic;
 use std::default::default;
-use utils::prelude::*;
 
-use crate::ast::*;
 use error::ParseError;
 use lexer::Lexer;
 use token::{Token, TokenKind};
+use utils::prelude::*;
+
+use crate::ast::*;
 
 #[derive(Debug)]
 pub struct Parser<'s> {
@@ -196,6 +197,12 @@ impl<'s> Parser<'s> {
             }
             TokenKind::Identifier => {
                 Expression::Identifier(Identifier::new(self.consume().value()))
+            }
+            TokenKind::CurlyOpen => {
+                self.consume_token(TokenKind::CurlyOpen)?;
+                let expr = self.parse_object_expression()?;
+                self.consume_token(TokenKind::CurlyClose)?;
+                Expression::ObjectExpression(expr)
             }
             _ => todo!(),
         })
@@ -490,6 +497,9 @@ impl<'s> Parser<'s> {
                 min_precedence,
                 associativity,
             )?,
+            TokenKind::ParenOpen => {
+                self.parse_call_expression(lhs, min_precedence, associativity)?
+            }
             _ => unreachable!(),
         })
     }
@@ -531,6 +541,70 @@ impl<'s> Parser<'s> {
         } else {
             Err(ParseError::unexpected(self.current_token))
         }
+    }
+
+    fn parse_object_expression(&mut self) -> Result<'s, ObjectExpression> {
+        let mut properties = Vec::new();
+        loop {
+            if self.current_token.kind() == TokenKind::CurlyClose {
+                return Ok(ObjectExpression::new(properties));
+            }
+
+            let key = self.consume_token(TokenKind::Identifier)?;
+            match self.current_token.kind() {
+                TokenKind::Colon => {
+                    self.consume();
+                    let value = self.parse_expression(0, default())?;
+                    properties.push(ObjectProperty::new(
+                        Expression::Identifier(Identifier::new(key.value())),
+                        Some(value),
+                        ObjectPropertyKind::KeyValue,
+                        false,
+                    ));
+                }
+                TokenKind::Comma => {
+                    properties.push(ObjectProperty::new(
+                        Expression::Identifier(Identifier::new(key.value())),
+                        None,
+                        ObjectPropertyKind::KeyValue,
+                        false,
+                    ));
+                }
+                _ => return Err(ParseError::unexpected(self.current_token)),
+            }
+
+            if self.current_token.kind() == TokenKind::Comma {
+                self.consume();
+            }
+        }
+    }
+
+    fn parse_call_expression(
+        &mut self,
+        lhs: Expression,
+        min_precedence: u32,
+        associativity: Associativity,
+    ) -> Result<'s, Expression> {
+        self.consume_token(TokenKind::ParenOpen)?;
+
+        let mut args = Vec::new();
+        loop {
+            if self.current_token.kind() == TokenKind::ParenClose {
+                break;
+            }
+
+            args.push(self.parse_expression(0, default())?);
+
+            if self.current_token.kind() == TokenKind::Comma {
+                self.consume();
+            } else {
+                break;
+            }
+        }
+
+        self.consume_token(TokenKind::ParenClose)?;
+
+        Ok(Expression::CallExpression(CallExpression::new(lhs, args)))
     }
 
     fn consume_or_insert_semicolon(&mut self) {
@@ -684,7 +758,7 @@ impl<'s> Parser<'s> {
     fn consume(&mut self) -> Token<'s> {
         let old_token = self.current_token;
         self.current_token = self.lexer.next_token();
-        trace!("consumed: {:?}", old_token);
+        println!("consumed: {:?}", old_token);
         old_token
     }
 }
