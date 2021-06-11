@@ -8,16 +8,15 @@ impl Tracer {
         Tracer {}
     }
 
-    pub fn visit<T>(&self, obj: &GcPointer<T>)
-    where
-        T: 'static + GcCell,
-    {
+    pub fn visit<T: GcCell>(&mut self, obj: &mut GcPointer<T>) {
         unsafe {
             obj.cell().mark();
         }
     }
 }
 
-pub trait Trace {
-    fn trace(&mut self, tracer: &mut Tracer);
+pub unsafe trait Trace {
+    fn trace(&mut self, tracer: &mut Tracer) {
+        let _ = tracer;
+    }
 }

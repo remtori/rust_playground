@@ -8,6 +8,7 @@ license = "MIT"
 [dependencies]
 lazy_static = "1.4.0"
 utils = { path = "../utils" }
+js-derive = { path = "../js-derive" }
 
 [features]
 

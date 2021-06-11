@@ -44,7 +44,7 @@ impl HeapBlock {
         unsafe { Cell::placement_new(cell_ptr, self.used_cell, data) };
         self.used_cell = cell_ptr;
 
-        GcPointer::new(unsafe { &*cell_ptr })
+        GcPointer::new(cell_ptr)
     }
 
     pub fn is_empty(&self) -> bool {
