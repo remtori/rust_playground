@@ -1,17 +1,22 @@
 use std::*;
 
-#[derive(Clone)]
-pub enum Value {
+use super::string::RcString;
+use crate::gc::{GcCell, GcPointer, GcTrace, Heap, Trace, Tracer};
+
+#[derive(Clone, GcTrace)]
+pub enum JsValue {
     Undefined,
     Null,
     Boolean(bool),
     Rational(f64),
     Integer(i32),
     BigInt(()),
-    String(String),
+    String(RcString),
     Object(()),
     Symbol(()),
 }
+
+impl GcCell for JsValue {}
 
 pub enum PreferredType {
     None,
@@ -19,36 +24,60 @@ pub enum PreferredType {
     String,
 }
 
-impl fmt::Debug for Value {
+impl fmt::Debug for JsValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Value::Undefined => write!(f, "Value{{undefined}}"),
-            Value::Null => write!(f, "Value{{null}}"),
-            Value::Boolean(b) => write!(f, "Value{{bool: {}}}", b),
-            Value::Rational(v) => write!(f, "Value{{number: {}}}", v),
-            Value::Integer(v) => write!(f, "Value{{number: {}}}", v),
-            Value::String(s) => write!(f, "Value{{string: {}}}", s),
-            Value::Object(_) => write!(f, "Value{{object}}"),
-            Value::BigInt(_) => write!(f, "Value{{bigint}}"),
-            Value::Symbol(_) => write!(f, "Value{{symbol}}"),
+            JsValue::Undefined => write!(f, "Value{{undefined}}"),
+            JsValue::Null => write!(f, "Value{{null}}"),
+            JsValue::Boolean(b) => write!(f, "Value{{bool: {}}}", b),
+            JsValue::Rational(v) => write!(f, "Value{{number: {}}}", v),
+            JsValue::Integer(v) => write!(f, "Value{{number: {}}}", v),
+            JsValue::String(s) => write!(f, "Value{{string: {}}}", *s.clone()),
+            JsValue::Object(_) => write!(f, "Value{{object}}"),
+            JsValue::BigInt(_) => write!(f, "Value{{bigint}}"),
+            JsValue::Symbol(_) => write!(f, "Value{{symbol}}"),
         }
     }
 }
 
-impl Value {
+impl JsValue {
     // Constructors
 
-    pub fn nan() -> Value {
-        Value::Rational(f64::NAN)
+    pub fn nan() -> JsValue {
+        JsValue::Rational(f64::NAN)
     }
 
-    pub fn number_from_str(str: &str) -> Value {
+    pub fn undefined() -> JsValue {
+        JsValue::Undefined
+    }
+
+    pub fn null() -> JsValue {
+        JsValue::Null
+    }
+
+    pub fn bool(b: bool) -> JsValue {
+        JsValue::Boolean(b)
+    }
+
+    pub fn integer(v: i32) -> JsValue {
+        JsValue::Integer(v)
+    }
+
+    pub fn rational(v: f64) -> JsValue {
+        JsValue::Rational(v)
+    }
+
+    pub fn string<T: Into<RcString>>(str: T) -> JsValue {
+        JsValue::String(str.into())
+    }
+
+    pub fn number_from_str(str: &str) -> JsValue {
         if let Ok(v) = str.parse::<i32>() {
-            Value::Integer(v)
+            JsValue::Integer(v)
         } else if let Ok(v) = str.parse::<f64>() {
-            Value::Rational(v)
+            JsValue::Rational(v)
         } else {
-            Value::nan()
+            JsValue::nan()
         }
     }
 
@@ -56,34 +85,34 @@ impl Value {
 
     pub fn as_f64(&self) -> f64 {
         match self {
-            Value::Rational(v) => *v,
-            Value::Integer(v) => *v as f64,
+            JsValue::Rational(v) => *v,
+            JsValue::Integer(v) => *v as f64,
             _ => panic!("Failed to cast {:?} as f64", self),
         }
     }
 
     pub fn as_i32(&self) -> i32 {
         match self {
-            Value::Rational(v) => *v as i32,
-            Value::Integer(v) => *v as i32,
+            JsValue::Rational(v) => *v as i32,
+            JsValue::Integer(v) => *v as i32,
             _ => panic!("Failed to cast {:?} as T", self),
         }
     }
 
     pub fn is_null(&self) -> bool {
-        matches!(self, Value::Null)
+        matches!(self, JsValue::Null)
     }
 
     pub fn is_undefined(&self) -> bool {
-        matches!(self, Value::Undefined)
+        matches!(self, JsValue::Undefined)
     }
 
     pub fn is_bigint(&self) -> bool {
-        matches!(self, Value::BigInt(_))
+        matches!(self, JsValue::BigInt(_))
     }
 
     pub fn is_nan(&self) -> bool {
-        if let Value::Rational(v) = self {
+        if let JsValue::Rational(v) = self {
             v.is_nan()
         } else {
             false
@@ -91,7 +120,7 @@ impl Value {
     }
 
     pub fn is_infinity(&self) -> bool {
-        if let Value::Rational(v) = self {
+        if let JsValue::Rational(v) = self {
             v.is_infinite()
         } else {
             false
@@ -100,8 +129,8 @@ impl Value {
 
     // JS Value type conversion
 
-    pub fn to_primitive(&self, _preferred_type: PreferredType) -> Value {
-        if let Value::Object(_obj) = self {
+    pub fn to_primitive(&self, _preferred_type: PreferredType) -> JsValue {
+        if let JsValue::Object(_obj) = self {
             todo!()
         } else {
             self.clone()
@@ -110,33 +139,33 @@ impl Value {
 
     pub fn to_boolean(&self) -> bool {
         match &self {
-            Value::Undefined => false,
-            Value::Null => false,
-            Value::Boolean(v) => *v,
-            Value::Rational(v) => !(v.is_nan() && *v == 0.0),
-            Value::Integer(v) => *v == 0,
-            Value::BigInt(_) => todo!(),
-            Value::Symbol(_) => true,
-            Value::String(s) => !s.is_empty(),
-            Value::Object(_) => true,
+            JsValue::Undefined => false,
+            JsValue::Null => false,
+            JsValue::Boolean(v) => *v,
+            JsValue::Rational(v) => !(v.is_nan() && *v == 0.0),
+            JsValue::Integer(v) => *v == 0,
+            JsValue::BigInt(_) => todo!(),
+            JsValue::Symbol(_) => true,
+            JsValue::String(s) => !s.is_empty(),
+            JsValue::Object(_) => true,
         }
     }
 
-    pub fn to_number(&self) -> Value {
+    pub fn to_number(&self) -> JsValue {
         match self {
-            Value::Undefined => Value::nan(),
-            Value::Null => Value::Integer(0),
-            Value::Boolean(b) => Value::Integer(if *b { 1 } else { 0 }),
-            Value::Rational(_) => self.clone(),
-            Value::Integer(_) => self.clone(),
-            Value::BigInt(_) => panic!("TypeError"),
-            Value::Symbol(_) => panic!("TypeError"),
-            Value::String(s) => Value::Rational(*s.parse::<f64>().ok().get_or_insert(f64::NAN)),
-            Value::Object(_) => self.to_primitive(PreferredType::Number).to_number(),
+            JsValue::Undefined => JsValue::nan(),
+            JsValue::Null => JsValue::Integer(0),
+            JsValue::Boolean(b) => JsValue::Integer(if *b { 1 } else { 0 }),
+            JsValue::Rational(_) => self.clone(),
+            JsValue::Integer(_) => self.clone(),
+            JsValue::BigInt(_) => panic!("TypeError"),
+            JsValue::Symbol(_) => panic!("TypeError"),
+            JsValue::String(s) => JsValue::Rational(*s.parse::<f64>().ok().get_or_insert(f64::NAN)),
+            JsValue::Object(_) => self.to_primitive(PreferredType::Number).to_number(),
         }
     }
 
-    pub fn to_numeric(&self) -> Value {
+    pub fn to_numeric(&self) -> JsValue {
         let primitive_value = self.to_primitive(PreferredType::Number);
         if primitive_value.is_bigint() {
             primitive_value
@@ -148,15 +177,15 @@ impl Value {
     #[allow(clippy::inherent_to_string)]
     pub fn to_string(&self) -> String {
         match &self {
-            Value::Undefined => "undefined".to_owned(),
-            Value::Null => "null".to_owned(),
-            Value::Boolean(v) => v.to_string(),
-            Value::Rational(v) => v.to_string(),
-            Value::Integer(v) => v.to_string(),
-            Value::BigInt(_) => todo!(),
-            Value::String(v) => v.clone(),
-            Value::Object(_) => self.to_primitive(PreferredType::String).to_string(),
-            Value::Symbol(_) => panic!("TypeError"),
+            JsValue::Undefined => "undefined".to_owned(),
+            JsValue::Null => "null".to_owned(),
+            JsValue::Boolean(v) => v.to_string(),
+            JsValue::Rational(v) => v.to_string(),
+            JsValue::Integer(v) => v.to_string(),
+            JsValue::BigInt(_) => todo!(),
+            JsValue::String(v) => v.clone_inner(),
+            JsValue::Object(_) => self.to_primitive(PreferredType::String).to_string(),
+            JsValue::Symbol(_) => panic!("TypeError"),
         }
     }
 
@@ -266,14 +295,14 @@ impl Value {
     }
 }
 
-impl From<f64> for Value {
+impl From<f64> for JsValue {
     fn from(v: f64) -> Self {
-        Value::Rational(v)
+        JsValue::Rational(v)
     }
 }
 
-impl From<i32> for Value {
+impl From<i32> for JsValue {
     fn from(v: i32) -> Self {
-        Value::Integer(v)
+        JsValue::Integer(v)
     }
 }

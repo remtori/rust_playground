@@ -1,5 +1,6 @@
-use super::Trace;
 use std::{any::TypeId, mem::size_of, ptr::DynMetadata};
+
+use super::Trace;
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]

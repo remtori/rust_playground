@@ -2,8 +2,6 @@
 #![feature(default_free_fn)]
 #![feature(ptr_metadata)]
 
-use std::collections::HashMap;
-
 pub mod ast;
 pub mod gc;
 pub mod jsrt;

@@ -14,7 +14,7 @@ pub struct ExecutionError {}
 pub type Result<T> = core::result::Result<T, ExecutionError>;
 
 pub trait ASTNode: fmt::Debug {
-    fn eval(&mut self, context: &mut Context) -> Result<Value>;
+    fn eval(&mut self, context: &mut Context) -> Result<JsValue>;
 }
 
 #[derive(Debug, Default)]

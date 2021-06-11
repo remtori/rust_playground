@@ -1,12 +1,13 @@
-use super::Tracer;
-use super::{BLOCK_SIZE, SweepType, HeapBlock, Cell, GcPointer, GcCell};
-use std::collections::HashSet;
-use std::collections::btree_map::Entry;
-use std::collections::BTreeMap;
+use std::{
+    collections::{btree_map::Entry, BTreeMap, HashSet},
+    mem::{size_of, size_of_val},
+};
+
+use super::{Cell, GcCell, GcPointer, HeapBlock, SweepType, Tracer, BLOCK_SIZE};
 
 pub struct Heap {
     map_size_to_blocks: BTreeMap<usize, Vec<HeapBlock>>,
-    root_collector: Vec<Box<dyn FnMut(&mut HashSet<*mut GcCell>)>>,
+    root_collector: Vec<Box<dyn FnMut(&mut HashSet<*mut dyn GcCell>)>>,
 }
 
 impl Heap {
@@ -28,7 +29,8 @@ impl Heap {
     }
 
     pub fn add_root_collector<F>(&mut self, func: F)
-    where F: FnMut(&mut HashSet<*mut GcCell>) + 'static,
+    where
+        F: FnMut(&mut HashSet<*mut dyn GcCell>) + 'static,
     {
         self.root_collector.push(Box::new(func));
     }
@@ -37,7 +39,7 @@ impl Heap {
     where
         T: Sized + 'static + GcCell,
     {
-        let cell_size = usize::next_power_of_two(std::mem::size_of_val(&obj));
+        let cell_size = usize::next_power_of_two(size_of_val(&obj) + size_of::<Cell>());
         match self.get_block_mut(cell_size) {
             Some(block) => block.allocate(obj),
             None => self.allocate_block(cell_size).allocate(obj),
@@ -63,14 +65,14 @@ impl Heap {
         self.sweep(sweep_type)
     }
 
-    pub fn sweep(&mut self, sweep_type: SweepType) {        
+    pub fn sweep(&mut self, sweep_type: SweepType) {
         for block_list in self.map_size_to_blocks.values_mut() {
             for block in block_list {
                 block.sweep(sweep_type)
             }
         }
 
-        if sweep_type == SweepType::Garbage {   
+        if sweep_type == SweepType::Garbage {
             self.map_size_to_blocks.retain(|_, block_list| {
                 block_list.retain(|block| !block.is_empty());
                 !block_list.is_empty()
@@ -105,15 +107,7 @@ impl Heap {
 }
 
 impl Default for Heap {
-    #[rustfmt::skip]
     fn default() -> Self {
-        Heap::new(&[
-                32, 32, 32, 32, 
-                64, 64, 64, 64, 
-                256, 256, 
-                1024
-            ], 
-            4 * 1024
-        )
+        Heap::new(&[64, 64, 64, 64, 256, 256, 1024], 4 * 1024)
     }
 }

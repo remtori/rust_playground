@@ -9,7 +9,7 @@ pub enum Statement {
 }
 
 impl ASTNode for Statement {
-    fn eval(&mut self, context: &mut Context) -> Result<Value> {
+    fn eval(&mut self, context: &mut Context) -> Result<JsValue> {
         match self {
             Statement::ExpressionStatement(expr) => expr.eval(context),
             Statement::VariableDeclaration(vd) => vd.eval(context),
@@ -33,13 +33,14 @@ pub struct VariableDeclaration {
 }
 
 impl ASTNode for VariableDeclaration {
-    fn eval(&mut self, context: &mut Context) -> Result<Value> {
+    fn eval(&mut self, context: &mut Context) -> Result<JsValue> {
         for (id, init) in self.declarations.iter_mut() {
             let init_value = init.eval(context)?;
+            let init_value = context.allocate(init_value);
             context.set_variable(id.name().clone(), init_value);
         }
 
-        Ok(Value::Undefined)
+        Ok(JsValue::Undefined)
     }
 }
 
@@ -82,12 +83,12 @@ impl BlockStatement {
 }
 
 impl ASTNode for BlockStatement {
-    fn eval(&mut self, context: &mut Context) -> Result<Value> {
+    fn eval(&mut self, context: &mut Context) -> Result<JsValue> {
         for statement in self.statements.iter_mut() {
             statement.eval(context)?;
         }
 
-        Ok(Value::Undefined)
+        Ok(JsValue::Undefined)
     }
 }
 
@@ -99,9 +100,9 @@ pub struct FunctionDeclaration {
 }
 
 impl ASTNode for FunctionDeclaration {
-    fn eval(&mut self, context: &mut Context) -> Result<Value> {
+    fn eval(&mut self, context: &mut Context) -> Result<JsValue> {
         context.set_variable(self.ident.name().clone(), todo!());
-        Ok(Value::Undefined)
+        Ok(JsValue::Undefined)
     }
 }
 

@@ -13,9 +13,9 @@ mod trace;
 
 pub use block::*;
 pub use cell::*;
-pub use trace::*;
-
+pub use heap::Heap;
 pub use js_derive::GcTrace;
+pub use trace::*;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum SweepType {
@@ -64,6 +64,15 @@ where
     }
 }
 
+impl<T> GcPointer<T>
+where
+    T: 'static + GcCell + Clone,
+{
+    pub fn clone_inner(&self) -> T {
+        self.deref().clone()
+    }
+}
+
 impl<T> Deref for GcPointer<T>
 where
     T: 'static + GcCell,
@@ -84,6 +93,8 @@ where
     }
 }
 
+unsafe impl<T> Trace for GcPointer<T> where T: 'static + GcCell {}
+
 macro_rules! no_op_trace {
     ($i:ident, $($is:ident),+) => {
        no_op_trace! { $i }
@@ -96,4 +107,6 @@ macro_rules! no_op_trace {
 }
 
 no_op_trace!(u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize);
-no_op_trace!(String);
+no_op_trace!(f32, f64, bool, String);
+
+unsafe impl Trace for () {}
