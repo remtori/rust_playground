@@ -16,16 +16,15 @@ fn derive_trace(mut s: Structure<'_>) -> proc_macro2::TokenStream {
     let trace_impl = s.gen_impl(quote! {
 
         gen unsafe impl Trace for @Self {
-        #[inline] fn trace(&mut self,tracer: &mut Tracer) {
-            #[allow(dead_code)]
-            #[inline]
-            fn mark<T: Trace + ?Sized>(it: &mut T, tracer: &mut Tracer) {
-              it.trace(tracer);
+            #[inline] fn trace(&mut self,tracer: &mut Tracer) {
+                #[allow(dead_code)]
+                #[inline]
+                fn mark<T: Trace + ?Sized>(it: &mut T, tracer: &mut Tracer) {
+                it.trace(tracer);
+                }
+                match &mut*self { #trace_body }
             }
-            match &mut*self { #trace_body }
         }
-    }
-
     });
     quote! {
         #trace_impl
