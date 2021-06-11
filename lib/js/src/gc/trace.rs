@@ -1,9 +1,14 @@
-use crate::GcCell;
+use super::{GcCell, GcPointer};
 
+#[derive(Debug)]
 pub struct Tracer {}
 
 impl Tracer {
-    pub fn visit<T>(&self, obj: &crate::Gc<T>)
+    pub fn new() -> Tracer {
+        Tracer {}
+    }
+
+    pub fn visit<T>(&self, obj: &GcPointer<T>)
     where
         T: 'static + GcCell,
     {

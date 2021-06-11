@@ -1,9 +1,11 @@
 #![allow(clippy::upper_case_acronyms)]
-#![feature(assoc_char_funcs, default_free_fn)]
+#![feature(default_free_fn)]
+#![feature(ptr_metadata)]
 
 use std::collections::HashMap;
 
 pub mod ast;
+pub mod gc;
 pub mod parser;
 pub mod runtime;
 pub mod vm;

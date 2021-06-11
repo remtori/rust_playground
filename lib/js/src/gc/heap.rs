@@ -1,12 +1,12 @@
-use crate::{BLOCK_SIZE, SweepType};
-use crate::{HeapBlock, Cell, Gc, GcCell};
+use super::Tracer;
+use super::{BLOCK_SIZE, SweepType, HeapBlock, Cell, GcPointer, GcCell};
+use std::collections::HashSet;
 use std::collections::btree_map::Entry;
 use std::collections::BTreeMap;
 
-#[derive(Debug)]
 pub struct Heap {
     map_size_to_blocks: BTreeMap<usize, Vec<HeapBlock>>,
-
+    root_collector: Vec<Box<dyn FnMut(&mut HashSet<*mut GcCell>)>>,
 }
 
 impl Heap {
@@ -17,6 +17,7 @@ impl Heap {
 
         let mut heap = Heap {
             map_size_to_blocks: BTreeMap::new(),
+            root_collector: Vec::new(),
         };
 
         for cell_size in cell_sizes {
@@ -26,7 +27,13 @@ impl Heap {
         heap
     }
 
-    pub fn allocate<T>(&mut self, obj: T) -> Gc<T>
+    pub fn add_root_collector<F>(&mut self, func: F)
+    where F: FnMut(&mut HashSet<*mut GcCell>) + 'static,
+    {
+        self.root_collector.push(Box::new(func));
+    }
+
+    pub fn allocate<T>(&mut self, obj: T) -> GcPointer<T>
     where
         T: Sized + 'static + GcCell,
     {
@@ -35,6 +42,25 @@ impl Heap {
             Some(block) => block.allocate(obj),
             None => self.allocate_block(cell_size).allocate(obj),
         }
+    }
+
+    pub fn collect_garbage(&mut self, sweep_type: SweepType) {
+        if sweep_type == SweepType::Everything {
+            self.sweep(sweep_type);
+            return;
+        }
+
+        let roots = &mut HashSet::new();
+        for collector in self.root_collector.iter_mut() {
+            collector(roots);
+        }
+
+        let tracer = &mut Tracer::new();
+        for root in roots.iter() {
+            unsafe { (**root).trace(tracer) };
+        }
+
+        self.sweep(sweep_type)
     }
 
     pub fn sweep(&mut self, sweep_type: SweepType) {        

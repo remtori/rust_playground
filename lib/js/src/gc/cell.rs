@@ -1,5 +1,5 @@
-use crate::{HeapBlock, Trace, BLOCK_SIZE};
-use std::{mem::size_of, ptr::DynMetadata};
+use super::Trace;
+use std::{any::TypeId, mem::size_of, ptr::DynMetadata};
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -19,6 +19,7 @@ pub trait GcCell: Trace + std::any::Any {
 pub struct Cell {
     pub(crate) next: *mut Cell,
     status: CellStatus,
+    type_id: TypeId,
     vtable: Option<DynMetadata<dyn GcCell>>,
 }
 
@@ -27,6 +28,7 @@ impl Cell {
         ptr.write(Cell {
             next,
             status: CellStatus::Unmarked,
+            type_id: TypeId::of::<()>(),
             vtable: None,
         });
     }
@@ -40,6 +42,7 @@ impl Cell {
         ptr.write(Cell {
             next,
             status: CellStatus::Unmarked,
+            type_id: TypeId::of::<T>(),
             vtable: Some(vtable),
         });
 
@@ -79,5 +82,9 @@ impl Cell {
 
     pub fn is_free(&self) -> bool {
         self.vtable.is_none()
+    }
+
+    pub fn type_id(&self) -> TypeId {
+        self.type_id
     }
 }
