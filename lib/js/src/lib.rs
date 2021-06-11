@@ -6,8 +6,8 @@ use std::collections::HashMap;
 
 pub mod ast;
 pub mod gc;
+pub mod jsrt;
 pub mod parser;
-pub mod runtime;
 pub mod vm;
 
 #[macro_use]

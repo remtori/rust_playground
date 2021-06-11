@@ -1,4 +1,4 @@
-use crate::runtime::*;
+use crate::jsrt::*;
 use crate::*;
 use std::*;
 
