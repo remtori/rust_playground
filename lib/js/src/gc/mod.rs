@@ -1,5 +1,7 @@
 use std::{
     any::TypeId,
+    collections::HashMap,
+    fmt::Debug,
     marker::PhantomData,
     mem::ManuallyDrop,
     ops::{Deref, DerefMut},
@@ -23,7 +25,7 @@ pub enum SweepType {
     Garbage,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct GcPointer<T: 'static + GcCell + ?Sized> {
     base: NonNull<Cell>,
     marker: PhantomData<T>,
@@ -64,6 +66,15 @@ where
     }
 }
 
+impl<T: GcCell> Clone for GcPointer<T> {
+    fn clone(&self) -> Self {
+        GcPointer {
+            base: self.base,
+            marker: PhantomData,
+        }
+    }
+}
+
 impl<T> GcPointer<T>
 where
     T: 'static + GcCell + Clone,
@@ -93,6 +104,15 @@ where
     }
 }
 
+impl<T> Debug for GcPointer<T>
+where
+    T: 'static + GcCell + Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.deref().fmt(f)
+    }
+}
+
 unsafe impl<T> Trace for GcPointer<T> where T: 'static + GcCell {}
 
 macro_rules! no_op_trace {
@@ -110,3 +130,25 @@ no_op_trace!(u8, u16, u32, u64, u128, usize, i8, i16, i32, i64, i128, isize);
 no_op_trace!(f32, f64, bool, String);
 
 unsafe impl Trace for () {}
+
+unsafe impl<K, V> Trace for HashMap<K, V>
+where
+    K: Trace,
+    V: Trace,
+{
+    fn trace(&mut self, tracer: &mut Tracer) {
+        self.iter_mut().for_each(|(k, v)| {
+            // k.trace(tracer);
+            v.trace(tracer);
+        });
+    }
+}
+
+unsafe impl<V> Trace for Vec<V>
+where
+    V: Trace,
+{
+    fn trace(&mut self, tracer: &mut Tracer) {
+        self.iter_mut().for_each(|v| v.trace(tracer))
+    }
+}

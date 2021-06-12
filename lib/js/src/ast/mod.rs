@@ -1,6 +1,6 @@
-use crate::jsrt::*;
-use crate::*;
 use std::*;
+
+use crate::{jsrt::*, *};
 
 pub mod expression;
 pub mod statement;

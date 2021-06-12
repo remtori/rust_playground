@@ -1,3 +1,7 @@
-pub mod string;
-pub mod value;
-pub use value::*;
+mod object;
+mod string;
+mod value;
+
+pub use object::JsObject;
+pub use string::JsString;
+pub use value::JsValue;

@@ -57,7 +57,7 @@ impl<'s> Parser<'s> {
                 self.parse_function_declaration()?,
             ))
         } else {
-            todo!()
+            todo!("Unhandle: {:?}", self.current_token)
         }
     }
 
@@ -204,7 +204,7 @@ impl<'s> Parser<'s> {
                 self.consume_token(TokenKind::CurlyClose)?;
                 Expression::ObjectExpression(expr)
             }
-            _ => todo!(),
+            _ => todo!("Unhandle: {:?}", self.current_token),
         })
     }
 
@@ -758,7 +758,6 @@ impl<'s> Parser<'s> {
     fn consume(&mut self) -> Token<'s> {
         let old_token = self.current_token;
         self.current_token = self.lexer.next_token();
-        println!("consumed: {:?}", old_token);
         old_token
     }
 }

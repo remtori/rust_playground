@@ -1,9 +1,20 @@
-use crate::gc::{GcCell, GcPointer, Trace};
+use utils::flystring::FlyString;
 
-pub type RcString = GcPointer<String>;
-impl GcCell for String {}
+use crate::gc::{GcCell, GcPointer, Heap, Trace};
 
-pub type RcFlyString = GcPointer<utils::flystring::FlyString>;
+#[derive(Debug, Clone)]
+pub struct JsString {
+    pub string: FlyString,
+}
 
-unsafe impl Trace for utils::flystring::FlyString {}
-impl GcCell for utils::flystring::FlyString {}
+unsafe impl Trace for JsString {}
+impl GcCell for JsString {}
+
+impl JsString {
+    pub fn new<T>(str: T) -> JsString
+    where
+        T: Into<FlyString>,
+    {
+        JsString { string: str.into() }
+    }
+}

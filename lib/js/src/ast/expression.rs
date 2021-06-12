@@ -74,7 +74,7 @@ impl ASTNode for Literal {
             Literal::Integer(v) => JsValue::integer(*v),
             Literal::Rational(v) => JsValue::rational(*v),
             Literal::BigInt(_) => todo!(),
-            Literal::String(s) => JsValue::string(context.allocate(s.clone())),
+            Literal::String(s) => JsValue::string(s.as_ref()),
         })
     }
 }
@@ -182,12 +182,7 @@ impl BinaryOperation {
 }
 
 impl BinaryOperation {
-    pub fn do_numeric_op(
-        op: &NumericOp,
-        left_value: JsValue,
-        right_value: JsValue,
-        context: &mut Context,
-    ) -> JsValue {
+    pub fn do_numeric_op(op: &NumericOp, left_value: JsValue, right_value: JsValue) -> JsValue {
         let left_value = left_value.to_number();
         let right_value = right_value.to_number();
 
@@ -239,7 +234,7 @@ impl BinaryOperation {
         if op == &NumericOp::Addition {
             let mut res = left_value.to_string();
             res.push_str(&right_value.to_string());
-            return JsValue::string(context.allocate(res));
+            return JsValue::string(res.as_ref());
         }
 
         JsValue::nan()
@@ -284,25 +279,22 @@ impl BinaryOperation {
             let value = match op {
                 AssignmentOp::Assignment => right_value,
                 AssignmentOp::AdditionAssignment => {
-                    Self::do_numeric_op(&NumericOp::Addition, left_value, right_value, context)
+                    Self::do_numeric_op(&NumericOp::Addition, left_value, right_value)
                 }
                 AssignmentOp::SubtractionAssignment => {
-                    Self::do_numeric_op(&NumericOp::Subtraction, left_value, right_value, context)
+                    Self::do_numeric_op(&NumericOp::Subtraction, left_value, right_value)
                 }
-                AssignmentOp::MultiplicationAssignment => Self::do_numeric_op(
-                    &NumericOp::Multiplication,
-                    left_value,
-                    right_value,
-                    context,
-                ),
+                AssignmentOp::MultiplicationAssignment => {
+                    Self::do_numeric_op(&NumericOp::Multiplication, left_value, right_value)
+                }
                 AssignmentOp::DivisionAssignment => {
-                    Self::do_numeric_op(&NumericOp::Division, left_value, right_value, context)
+                    Self::do_numeric_op(&NumericOp::Division, left_value, right_value)
                 }
                 AssignmentOp::ModuloAssignment => {
-                    Self::do_numeric_op(&NumericOp::Modulo, left_value, right_value, context)
+                    Self::do_numeric_op(&NumericOp::Modulo, left_value, right_value)
                 }
                 AssignmentOp::ExponentAssignment => {
-                    Self::do_numeric_op(&NumericOp::Exponent, left_value, right_value, context)
+                    Self::do_numeric_op(&NumericOp::Exponent, left_value, right_value)
                 }
                 AssignmentOp::BitAndAssignment => {
                     Self::do_bitwise_op(&BitwiseOp::And, left_value, right_value)
@@ -347,9 +339,7 @@ impl ASTNode for BinaryOperation {
                 let right_value = self.rhs.eval(context)?;
 
                 match &self.op {
-                    BinaryOp::NumericOp(op) => {
-                        Self::do_numeric_op(&op, left_value, right_value, context)
-                    }
+                    BinaryOp::NumericOp(op) => Self::do_numeric_op(&op, left_value, right_value),
                     BinaryOp::BitwiseOp(op) => Self::do_bitwise_op(&op, left_value, right_value),
                     BinaryOp::CompareOp(op) => Self::do_compare_op(&op, left_value, right_value)?,
                     _ => unreachable!(),
@@ -387,7 +377,20 @@ impl ObjectExpression {
 
 impl ASTNode for ObjectExpression {
     fn eval(&mut self, context: &mut Context) -> Result<JsValue> {
-        todo!()
+        let mut obj = JsObject::new(context);
+        for prop in self.0.iter_mut() {
+            let key = if let Expression::Identifier(ident) = prop.key.as_mut() {
+                JsValue::string(ident.name().as_ref())
+            } else {
+                prop.key.eval(context)?
+            };
+
+            let value = prop.value.as_mut().unwrap().eval(context)?;
+            let value = context.allocate(value);
+            obj.put_property(key.to_primitive_string(context), value);
+        }
+
+        Ok(JsValue::object(obj))
     }
 }
 
@@ -424,8 +427,8 @@ impl ObjectProperty {
 }
 
 impl ASTNode for ObjectProperty {
-    fn eval(&mut self, context: &mut Context) -> Result<JsValue> {
-        todo!()
+    fn eval(&mut self, _context: &mut Context) -> Result<JsValue> {
+        unreachable!()
     }
 }
 

@@ -7,7 +7,7 @@ use super::Runtime;
 use crate::{
     ast::DeclarationKind,
     gc::{GcCell, GcPointer},
-    jsrt::value::JsValue,
+    jsrt::JsValue,
 };
 
 pub struct Context {
@@ -36,7 +36,7 @@ impl Context {
 
     pub fn allocate<T>(&mut self, data: T) -> GcPointer<T>
     where
-        T: GcCell + std::fmt::Debug,
+        T: GcCell,
     {
         self.runtime.lock().unwrap().heap().allocate(data)
     }

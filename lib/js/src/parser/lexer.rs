@@ -1,5 +1,6 @@
-use super::token::*;
 use std::collections::HashMap;
+
+use super::token::*;
 
 const EOF: char = '\0';
 
@@ -95,6 +96,7 @@ impl<'s> Lexer<'s> {
                 self.consume();
             }
         } else if self.current_char == '\'' || self.current_char == '"' {
+            token_kind = TokenKind::StringLiteral;
             let stop_char = self.current_char;
             loop {
                 self.consume();

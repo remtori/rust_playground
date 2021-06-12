@@ -1,7 +1,9 @@
-use std::*;
+use std::{fmt, ops::Deref};
 
-use super::string::RcString;
-use crate::gc::{GcCell, GcPointer, GcTrace, Heap, Trace, Tracer};
+use utils::prelude::FlyString;
+
+use super::{string::JsString, JsObject};
+use crate::{gc::*, vm::Context};
 
 #[derive(Clone, GcTrace)]
 pub enum JsValue {
@@ -11,8 +13,8 @@ pub enum JsValue {
     Rational(f64),
     Integer(i32),
     BigInt(()),
-    String(RcString),
-    Object(()),
+    String(JsString),
+    Object(GcPointer<JsObject>),
     Symbol(()),
 }
 
@@ -32,8 +34,8 @@ impl fmt::Debug for JsValue {
             JsValue::Boolean(b) => write!(f, "Value{{bool: {}}}", b),
             JsValue::Rational(v) => write!(f, "Value{{number: {}}}", v),
             JsValue::Integer(v) => write!(f, "Value{{number: {}}}", v),
-            JsValue::String(s) => write!(f, "Value{{string: {}}}", *s.clone()),
-            JsValue::Object(_) => write!(f, "Value{{object}}"),
+            JsValue::String(s) => write!(f, "Value{{string: {}}}", s.clone().string),
+            JsValue::Object(o) => write!(f, "Value{{object: {:#?}}}", o),
             JsValue::BigInt(_) => write!(f, "Value{{bigint}}"),
             JsValue::Symbol(_) => write!(f, "Value{{symbol}}"),
         }
@@ -67,8 +69,12 @@ impl JsValue {
         JsValue::Rational(v)
     }
 
-    pub fn string<T: Into<RcString>>(str: T) -> JsValue {
-        JsValue::String(str.into())
+    pub fn string<T: Into<FlyString>>(str: T) -> JsValue {
+        JsValue::String(JsString::new(str.into()))
+    }
+
+    pub fn object(obj: GcPointer<JsObject>) -> JsValue {
+        JsValue::Object(obj)
     }
 
     pub fn number_from_str(str: &str) -> JsValue {
@@ -130,8 +136,8 @@ impl JsValue {
     // JS Value type conversion
 
     pub fn to_primitive(&self, _preferred_type: PreferredType) -> JsValue {
-        if let JsValue::Object(_obj) = self {
-            todo!()
+        if let JsValue::Object(obj) = self {
+            JsValue::string(format!("Object: {:?}", obj).as_ref())
         } else {
             self.clone()
         }
@@ -146,7 +152,7 @@ impl JsValue {
             JsValue::Integer(v) => *v == 0,
             JsValue::BigInt(_) => todo!(),
             JsValue::Symbol(_) => true,
-            JsValue::String(s) => !s.is_empty(),
+            JsValue::String(s) => !s.string.is_empty(),
             JsValue::Object(_) => true,
         }
     }
@@ -160,7 +166,9 @@ impl JsValue {
             JsValue::Integer(_) => self.clone(),
             JsValue::BigInt(_) => panic!("TypeError"),
             JsValue::Symbol(_) => panic!("TypeError"),
-            JsValue::String(s) => JsValue::Rational(*s.parse::<f64>().ok().get_or_insert(f64::NAN)),
+            JsValue::String(s) => {
+                JsValue::Rational(*s.string.parse::<f64>().ok().get_or_insert(f64::NAN))
+            }
             JsValue::Object(_) => self.to_primitive(PreferredType::Number).to_number(),
         }
     }
@@ -174,19 +182,22 @@ impl JsValue {
         }
     }
 
-    #[allow(clippy::inherent_to_string)]
     pub fn to_string(&self) -> String {
         match &self {
-            JsValue::Undefined => "undefined".to_owned(),
-            JsValue::Null => "null".to_owned(),
+            JsValue::Undefined => "undefined".into(),
+            JsValue::Null => "null".into(),
             JsValue::Boolean(v) => v.to_string(),
             JsValue::Rational(v) => v.to_string(),
             JsValue::Integer(v) => v.to_string(),
             JsValue::BigInt(_) => todo!(),
-            JsValue::String(v) => v.clone_inner(),
+            JsValue::String(v) => v.clone().string.to_string(),
             JsValue::Object(_) => self.to_primitive(PreferredType::String).to_string(),
             JsValue::Symbol(_) => panic!("TypeError"),
         }
+    }
+
+    pub fn to_primitive_string(&self, context: &mut Context) -> GcPointer<JsString> {
+        context.allocate(JsString::new(self.to_string().as_ref()))
     }
 
     pub fn to_i32(&self) -> i32 {
