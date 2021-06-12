@@ -18,6 +18,18 @@ pub struct FlyString {
     value: Arc<Box<str>>,
 }
 
+impl FlyString {
+    pub fn hash(&self) -> u64 {
+        self.hash
+    }
+}
+
+impl Hash for FlyString {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        state.write_u64(self.hash)
+    }
+}
+
 impl Drop for FlyString {
     fn drop(&mut self) {
         if let Ok(mut cache) = STRING_CACHE.lock() {
