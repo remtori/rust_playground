@@ -1,0 +1,6 @@
+{
+    "order": [
+        "init.mcfunction",
+        "script.mcfunction"
+    ]
+}
