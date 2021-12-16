@@ -1,5 +1,6 @@
 [workspace]
 members = [ "bin/*", "lib/*" ]
+resolver = "2"
 
 # Threadpool rely on unwind to protect its worker
 [profile.dev]
